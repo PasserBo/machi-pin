@@ -1,5 +1,5 @@
 {
-  "name": "my-turborepo",
+  "name": "machi_pin",
   "private": true,
   "scripts": {
     "build": "turbo run build",

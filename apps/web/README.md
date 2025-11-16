@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/create-next-app).
+# Machi-Pin Web App
+
+This is the main PWA (Progressive Web App) for the Machi-Pin project - your digital scrapbook for places and memories.
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (Pages Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Maps**: MapLibre GL + react-map-gl
+- **Drawing**: Konva + react-konva
+- **Backend**: Firebase (Auth, Firestore, Storage)
+- **Data Fetching**: SWR
+- **PWA**: next-pwa
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ 
+- pnpm 8+
+
+### Installation
+
+1. Install dependencies from the monorepo root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+cd ../..
+pnpm install
+```
+
+2. Set up environment variables:
+
+```bash
+cp .env.example .env.local
+```
+
+Then edit `.env.local` and add your Firebase configuration values from the [Firebase Console](https://console.firebase.google.com).
+
+### Development
+
+Run the development server:
+
+```bash
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
+Build for production:
+
+```bash
+pnpm build
+```
+
+Start the production server:
+
+```bash
+pnpm start
+```
+
+## Project Structure
+
+```
+apps/web/
+├── pages/              # Next.js Pages Router
+│   ├── _app.tsx       # App wrapper
+│   ├── _document.tsx  # Document with PWA meta tags
+│   ├── index.tsx      # Landing page
+│   ├── login.tsx      # Login page
+│   ├── dashboard.tsx  # Main dashboard (desk)
+│   ├── map/
+│   │   └── [mapId].tsx # Map view with pins
+│   └── pin/
+│       └── [pinId].tsx # Public pin share page (SSR)
+├── components/         # React components
+├── lib/               # Utilities and helpers
+│   └── firebaseClient.ts # Firebase initialization
+├── styles/            # Global styles
+│   └── globals.css    # Tailwind + custom styles
+└── public/            # Static assets
+    └── manifest.json  # PWA manifest
+```
+
+## Features
+
+### Core Pages
+
+- **Landing Page** (`/`) - Redirects to dashboard or login
+- **Login** (`/login`) - Firebase authentication
+- **Dashboard** (`/dashboard`) - "Desk" view with all maps
+- **Map View** (`/map/[mapId]`) - Interactive map with pins and camera panel
+- **Pin Share** (`/pin/[pinId]`) - Public SSR page for sharing pins
+
+### PWA Features
+
+- Offline support
+- Installable on mobile devices
+- Optimized caching strategy
+- Works standalone
+
+### Camera Integration
+
+The camera is integrated directly into the sliding panel on the map view. Users can swipe up to access the camera and capture photos without navigating to a separate screen.
+
+## Environment Variables
+
+See `.env.example` for required environment variables. All Firebase configuration must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser.
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Firebase Documentation](https://firebase.google.com/docs)
+- [MapLibre GL Documentation](https://maplibre.org/)
+- [Konva Documentation](https://konvajs.org/)

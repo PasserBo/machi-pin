@@ -1,135 +1,176 @@
-# Turborepo starter
+# Machi-Pin (PWA-First)
 
-This Turborepo starter is maintained by the Turborepo core team.
+> Your digital scrapbook for places and memories
 
-## Using this example
+Machi-Pin is a location-based memory app that combines maps, photos, and sketches to create a unique analog-feeling digital experience.
 
-Run the following command:
+## 🎯 Project Overview
 
-```sh
-npx create-turbo@latest
-```
+**Code Name**: Machi-Pin  
+**Tech Stack**: Next.js (Pages Router), TypeScript, Firebase, MapLibre, Konva, PWA  
+**Architecture**: Turborepo Monorepo with pnpm
 
-## What's inside?
-
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
+## 📁 Monorepo Structure
 
 ```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+machi_pin/
+├── apps/
+│   └── web/              # Main PWA application (Next.js)
+├── packages/
+│   ├── types/            # Shared TypeScript types
+│   ├── ui/               # Shared UI components
+│   ├── eslint-config/    # Shared ESLint configuration
+│   └── typescript-config/# Shared TypeScript configuration
+├── pnpm-workspace.yaml
+├── turbo.json
+└── package.json
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+## 🚀 Quick Start
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+### Prerequisites
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+- Node.js 18+
+- pnpm 8+
+- Firebase project (for backend services)
 
-### Develop
+### Installation
 
-To develop all apps and packages, run the following command:
+1. **Clone the repository**
 
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+```bash
+git clone <your-repo-url>
+cd machi_pin
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+2. **Install dependencies**
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+```bash
+pnpm install
 ```
 
-### Remote Caching
+3. **Set up environment variables**
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+```bash
+cd apps/web
+cp .env.example .env.local
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+Edit `apps/web/.env.local` with your Firebase credentials from the [Firebase Console](https://console.firebase.google.com).
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+4. **Run development server**
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+```bash
+# From the root directory
+pnpm dev
 ```
 
-## Useful Links
+The app will be available at [http://localhost:3000](http://localhost:3000)
 
-Learn more about the power of Turborepo:
+## 📦 Available Scripts
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+Run these from the monorepo root:
+
+```bash
+# Development
+pnpm dev          # Start all apps in dev mode
+pnpm build        # Build all apps and packages
+pnpm lint         # Lint all apps and packages
+
+# Web app specific (from apps/web/)
+pnpm dev          # Start Next.js dev server
+pnpm build        # Build for production
+pnpm start        # Start production server
+```
+
+## 🏗️ Key Features
+
+### Core Functionality
+
+- 🗺️ **Interactive Maps** - Browse and create location-based collections
+- 📍 **Pin Memories** - Save places with photos, sketches, and notes
+- ✏️ **Analog Sketching** - Draw on your photos with Konva canvas
+- 📷 **Integrated Camera** - Capture moments directly from the map view
+- 🔗 **Public Sharing** - Share individual pins with beautiful SSR pages
+- 📱 **PWA Support** - Install and use offline
+
+### User Experience
+
+- 📚 **Desk Metaphor** - Organize maps like physical notebooks
+- 📄 **Analog UI** - Paper-like textures and handwritten feel
+- 🎨 **Simple & Intuitive** - Easy to capture and cherish memories
+
+## 🛠️ Technology Stack
+
+### Frontend
+- **Next.js 16** (Pages Router) - React framework with SSR
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Utility-first styling
+- **MapLibre GL** - Open-source maps
+- **Konva** - Canvas-based drawing
+
+### Backend
+- **Firebase Auth** - User authentication
+- **Firestore** - NoSQL database
+- **Firebase Storage** - File storage for photos
+
+### Developer Tools
+- **Turborepo** - High-performance build system
+- **pnpm** - Fast, disk space efficient package manager
+- **ESLint** - Code linting
+- **next-pwa** - PWA configuration
+
+## 📱 App Structure
+
+### Pages
+
+- `/` - Landing page (redirects to dashboard or login)
+- `/login` - Authentication page
+- `/dashboard` - Main "desk" view with all maps
+- `/map/[mapId]` - Interactive map view
+- `/pin/[pinId]` - Public pin sharing page (SSR for SEO)
+
+## 🔧 Development
+
+### Adding a New Package
+
+```bash
+# Create a new package
+mkdir -p packages/your-package
+cd packages/your-package
+pnpm init
+```
+
+### Workspace Dependencies
+
+To reference a workspace package:
+
+```json
+{
+  "dependencies": {
+    "@repo/types": "workspace:*"
+  }
+}
+```
+
+## 🌐 Deployment
+
+The PWA is optimized for deployment on:
+
+- **Vercel** (recommended for Next.js)
+- **Firebase Hosting**
+- **Netlify**
+
+Make sure to set up your environment variables in your deployment platform.
+
+## 📝 License
+
+[Your License Here]
+
+## 🤝 Contributing
+
+[Your Contributing Guidelines]
+
+---
+
+Built with ❤️ using Next.js and Firebase

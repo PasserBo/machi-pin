@@ -13,7 +13,7 @@ export interface User {
 }
 
 /**
- * Map (collection of pins) data model
+ * Map (collection of pins) data model - Legacy
  */
 export interface Map {
   id: string;
@@ -25,6 +25,56 @@ export interface Map {
   updatedAt: Date;
   pinCount: number;
 }
+
+/**
+ * Bounding box for map viewport
+ */
+export interface BoundingBox {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+/**
+ * Center point coordinates
+ */
+export interface CenterPoint {
+  lat: number;
+  lng: number;
+}
+
+/**
+ * MapDocument - Firestore document structure for maps
+ * Used for storing map data with viewport information
+ */
+export interface MapDocument {
+  id?: string;              // Firestore Doc ID (optional, added after creation)
+  name: string;             // 地图名称 (用户输入)
+  ownerUid: string;         // 创建者的 UID
+  
+  // 地图视觉数据
+  styleKey: string;         // Map style key (e.g., 'basic', 'streets')
+  styleUrl: string;         // Maptiler 的完整样式 URL
+  thumbnailUrl?: string;    // (可选) 未来用于显示缩略图
+  
+  // 地图视口数据 (用于恢复视图)
+  boundingBox: BoundingBox; // 存储为纯数字，方便查询
+  center: CenterPoint;      // 中心点 (备用)
+  zoom: number;             // 缩放层级 (备用)
+  
+  // Pin 统计
+  pinCount: number;         // Pin 数量
+  
+  // 元数据
+  createdAt: unknown;       // Firestore Timestamp
+  updatedAt: unknown;       // Firestore Timestamp
+}
+
+/**
+ * Create MapDocument input (for form submission)
+ */
+export type CreateMapDocumentInput = Omit<MapDocument, 'id' | 'createdAt' | 'updatedAt' | 'pinCount' | 'thumbnailUrl'>;
 
 /**
  * GPS coordinates

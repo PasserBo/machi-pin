@@ -1,8 +1,6 @@
 'use client';
 
 import {
-  forwardRef,
-  useImperativeHandle,
   useRef,
   useState,
   useCallback,
@@ -29,8 +27,13 @@ const DEFAULT_VIEW_STATE = {
   zoom: 12,
 };
 
+/**
+ * Handle interface exposed to parent components
+ */
 export interface MapCanvasHandle {
   getBounds: () => LngLatBounds | undefined;
+  getCenter: () => { lat: number; lng: number } | undefined;
+  getZoom: () => number | undefined;
   getMap: () => maplibregl.Map | undefined;
 }
 
@@ -43,55 +46,77 @@ interface MapCanvasProps {
     zoom: number;
   };
   onMoveEnd?: (bounds: LngLatBounds) => void;
+  /** Callback when map is ready, provides handle for parent to use */
+  onMapReady?: (handle: MapCanvasHandle) => void;
 }
 
-const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(
-  ({ className = '', mapStyle = 'basic', initialViewState, onMoveEnd }, ref) => {
-    const mapRef = useRef<MapRef>(null);
-    const [viewState, setViewState] = useState(
-      initialViewState || DEFAULT_VIEW_STATE
-    );
+export default function MapCanvas({
+  className = '',
+  mapStyle = 'basic',
+  initialViewState,
+  onMoveEnd,
+  onMapReady,
+}: MapCanvasProps) {
+  const mapRef = useRef<MapRef>(null);
+  const [viewState, setViewState] = useState(
+    initialViewState || DEFAULT_VIEW_STATE
+  );
+  const [isLoaded, setIsLoaded] = useState(false);
 
-    // Get the style URL based on the style key
-    const styleUrl = MAP_STYLES[mapStyle];
+  // Get the style URL based on the style key
+  const styleUrl = MAP_STYLES[mapStyle];
 
-    // Expose methods to parent via ref
-    useImperativeHandle(ref, () => ({
-      getBounds: () => {
-        return mapRef.current?.getMap().getBounds();
-      },
-      getMap: () => {
-        return mapRef.current?.getMap();
-      },
-    }));
+  // Create the handle object
+  const createHandle = useCallback((): MapCanvasHandle => ({
+    getBounds: () => {
+      return mapRef.current?.getMap()?.getBounds();
+    },
+    getCenter: () => {
+      const center = mapRef.current?.getMap()?.getCenter();
+      if (!center) return undefined;
+      return { lat: center.lat, lng: center.lng };
+    },
+    getZoom: () => {
+      return mapRef.current?.getMap()?.getZoom();
+    },
+    getMap: () => {
+      return mapRef.current?.getMap();
+    },
+  }), []);
 
-    const handleMove = useCallback((evt: ViewStateChangeEvent) => {
-      setViewState(evt.viewState);
-    }, []);
+  // Notify parent when map is loaded
+  const handleLoad = useCallback(() => {
+    setIsLoaded(true);
+    if (onMapReady) {
+      onMapReady(createHandle());
+    }
+  }, [onMapReady, createHandle]);
 
-    const handleMoveEnd = useCallback(() => {
-      if (onMoveEnd && mapRef.current) {
-        const bounds = mapRef.current.getMap().getBounds();
+  const handleMove = useCallback((evt: ViewStateChangeEvent) => {
+    setViewState(evt.viewState);
+  }, []);
+
+  const handleMoveEnd = useCallback(() => {
+    if (onMoveEnd && mapRef.current) {
+      const bounds = mapRef.current.getMap()?.getBounds();
+      if (bounds) {
         onMoveEnd(bounds);
       }
-    }, [onMoveEnd]);
+    }
+  }, [onMoveEnd]);
 
-    return (
-      <div className={className} style={{ width: '100%', height: '100%' }}>
-        <Map
-          ref={mapRef}
-          {...viewState}
-          onMove={handleMove}
-          onMoveEnd={handleMoveEnd}
-          style={{ width: '100%', height: '100%' }}
-          mapStyle={styleUrl}
-          attributionControl={true}
-        />
-      </div>
-    );
-  }
-);
-
-MapCanvas.displayName = 'MapCanvas';
-
-export default MapCanvas;
+  return (
+    <div className={className} style={{ width: '100%', height: '100%' }}>
+      <Map
+        ref={mapRef}
+        {...viewState}
+        onMove={handleMove}
+        onMoveEnd={handleMoveEnd}
+        onLoad={handleLoad}
+        style={{ width: '100%', height: '100%' }}
+        mapStyle={styleUrl}
+        attributionControl={true}
+      />
+    </div>
+  );
+}

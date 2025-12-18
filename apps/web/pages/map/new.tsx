@@ -5,9 +5,10 @@ import dynamic from 'next/dynamic';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
 import { useAuth } from '@/lib/auth/AuthContext';
+import MapNameModal from '@/components/MapNameModal';
 import type { MapCanvasHandle, MapStyleKey } from '@/components/MapCanvas';
-
-// We import MAP_STYLES dynamically since it's bundled with MapCanvas
+import { MAP_STYLES } from '@/components/MapCanvas';
+import type { MapDocument } from '@repo/types';
 
 // Dynamic import to avoid SSR issues with maplibre-gl
 const MapCanvas = dynamic(() => import('@/components/MapCanvas'), {
@@ -30,57 +31,122 @@ const STYLE_OPTIONS: { key: MapStyleKey; label: string; icon: string }[] = [
 
 export default function NewMapPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const mapRef = useRef<MapCanvasHandle>(null);
+  const { user, firebaseUser } = useAuth();
+  
+  // Store the map handle in a ref (set via callback, not forwardRef)
+  const mapHandleRef = useRef<MapCanvasHandle | null>(null);
+  
   const [selectedStyle, setSelectedStyle] = useState<MapStyleKey>('basic');
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleCut = useCallback(async () => {
-    const bounds = mapRef.current?.getBounds();
-    if (!bounds) {
-      alert('Could not get map bounds');
+  // Callback when map is ready
+  const handleMapReady = useCallback((handle: MapCanvasHandle) => {
+    mapHandleRef.current = handle;
+    setIsMapReady(true);
+  }, []);
+
+  // Open the naming modal
+  const handleCutClick = useCallback(() => {
+    // Check if user is logged in first
+    if (!user) {
+      setError('请先登录后再创建地图');
+      setTimeout(() => {
+        router.push('/login');
+      }, 1500);
       return;
     }
+    
+    // Check if map is ready
+    if (!isMapReady || !mapHandleRef.current) {
+      setError('地图正在加载中，请稍后再试');
+      return;
+    }
+    
+    // Check if we can get map data
+    const bounds = mapHandleRef.current.getBounds();
+    if (!bounds) {
+      setError('无法获取地图数据，请稍后再试');
+      return;
+    }
+    
+    setIsModalOpen(true);
+  }, [user, router, isMapReady]);
 
-    // Prompt for map name
-    const mapName = window.prompt('Enter a name for your map:', 'My New Map');
-    if (!mapName) return; // User cancelled
-
+  // Handle save after user confirms the name
+  const handleSave = useCallback(async (mapName: string) => {
     if (!user) {
-      alert('Please log in to create a map');
+      setError('请先登录');
       router.push('/login');
       return;
     }
 
+    if (!mapHandleRef.current) {
+      setError('地图未准备好，请重试');
+      return;
+    }
+
+    const bounds = mapHandleRef.current.getBounds();
+    const center = mapHandleRef.current.getCenter();
+    const zoom = mapHandleRef.current.getZoom();
+
+    if (!bounds || !center || zoom === undefined) {
+      setError('无法获取地图状态，请重试');
+      return;
+    }
+
     setIsSaving(true);
+    setError(null);
 
     try {
-      const boundsArray = bounds.toArray();
-      const sw = boundsArray[0];
-      const ne = boundsArray[1];
-      
-      // Save to Firestore
-      const docRef = await addDoc(collection(db, 'maps'), {
+      // Extract bounding box from MapLibre bounds object
+      const boundingBox = {
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest(),
+      };
+
+      // Prepare the document data
+      const mapData: Omit<MapDocument, 'id'> = {
         name: mapName,
-        ownerId: user.id,
-        style: selectedStyle,
-        bounds: {
-          sw: { lng: sw?.[0] ?? 0, lat: sw?.[1] ?? 0 },
-          ne: { lng: ne?.[0] ?? 0, lat: ne?.[1] ?? 0 },
-        },
+        ownerUid: firebaseUser?.uid || '',
+        styleKey: selectedStyle,
+        styleUrl: MAP_STYLES[selectedStyle],
+        boundingBox,
+        center,
+        zoom,
+        pinCount: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+      };
 
-      // Redirect to the new map
+      // Write to Firestore
+      const docRef = await addDoc(collection(db, 'maps'), mapData);
+
+      // Success! Close modal and redirect
+      setIsModalOpen(false);
       router.push(`/map/${docRef.id}`);
-    } catch (error) {
-      console.error('Failed to create map:', error);
-      alert('Failed to create map. Please try again.');
-    } finally {
+    } catch (err) {
+      console.error('Failed to save map:', err);
+      setError('保存失败，请重试。' + (err instanceof Error ? ` (${err.message})` : ''));
       setIsSaving(false);
     }
-  }, [user, router, selectedStyle]);
+  }, [user, router, selectedStyle, firebaseUser]);
+
+  // Close modal
+  const handleCloseModal = useCallback(() => {
+    if (!isSaving) {
+      setIsModalOpen(false);
+    }
+  }, [isSaving]);
+
+  // Dismiss error
+  const dismissError = useCallback(() => {
+    setError(null);
+  }, []);
 
   return (
     <>
@@ -91,7 +157,10 @@ export default function NewMapPage() {
       <div className="h-screen w-screen flex flex-col overflow-hidden relative">
         {/* Layer 1: Fullscreen Map (bottom) */}
         <div className="absolute inset-0">
-          <MapCanvas ref={mapRef} mapStyle={selectedStyle} />
+          <MapCanvas 
+            mapStyle={selectedStyle} 
+            onMapReady={handleMapReady}
+          />
         </div>
 
         {/* Layer 2: Viewfinder Overlay (middle, z-10) */}
@@ -108,6 +177,22 @@ export default function NewMapPage() {
             ← Back
           </button>
         </div>
+
+        {/* Error Toast */}
+        {error && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 animate-slide-down">
+            <div className="bg-red-500 text-white px-6 py-3 rounded-2xl shadow-lg flex items-center gap-3">
+              <span>⚠️</span>
+              <span>{error}</span>
+              <button 
+                onClick={dismissError}
+                className="ml-2 hover:bg-red-600 rounded-full p-1 transition"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Layer 3: Bottom Control Bar (z-20) */}
         <div className="absolute bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-md border-t border-gray-200 rounded-t-3xl shadow-2xl">
@@ -135,14 +220,14 @@ export default function NewMapPage() {
 
             {/* Cut Button */}
             <button
-              onClick={handleCut}
-              disabled={isSaving}
-              className="w-full py-4 bg-black text-white text-lg font-semibold rounded-2xl shadow-lg hover:bg-gray-800 active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              onClick={handleCutClick}
+              disabled={!isMapReady}
+              className="w-full py-4 bg-black text-white text-lg font-semibold rounded-2xl shadow-lg hover:bg-gray-800 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSaving ? (
+              {!isMapReady ? (
                 <>
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-r-transparent" />
-                  Saving...
+                  Loading...
                 </>
               ) : (
                 <>
@@ -153,7 +238,32 @@ export default function NewMapPage() {
             </button>
           </div>
         </div>
+
+        {/* Map Name Modal */}
+        <MapNameModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onConfirm={handleSave}
+          isLoading={isSaving}
+        />
       </div>
+
+      {/* Animation styles */}
+      <style jsx>{`
+        @keyframes slide-down {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+        .animate-slide-down {
+          animation: slide-down 0.3s ease-out forwards;
+        }
+      `}</style>
     </>
   );
 }

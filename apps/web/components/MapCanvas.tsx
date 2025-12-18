@@ -4,10 +4,10 @@ import {
   useRef,
   useState,
   useCallback,
-  useEffect,
+  useMemo,
 } from 'react';
 import Map, { MapRef, ViewStateChangeEvent } from 'react-map-gl/maplibre';
-import type { LngLatBounds } from 'maplibre-gl';
+import type { LngLatBounds, LngLatBoundsLike } from 'maplibre-gl';
 
 // Maptiler API key
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
@@ -28,6 +28,16 @@ const DEFAULT_VIEW_STATE = {
 };
 
 /**
+ * Bounding box in Firestore format
+ */
+export interface BoundingBox {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+/**
  * Handle interface exposed to parent components
  */
 export interface MapCanvasHandle {
@@ -39,12 +49,19 @@ export interface MapCanvasHandle {
 
 interface MapCanvasProps {
   className?: string;
+  /** Map style key (basic, streets) - used if styleUrl is not provided */
   mapStyle?: MapStyleKey;
+  /** Direct style URL - takes precedence over mapStyle */
+  styleUrl?: string;
+  /** Initial view state */
   initialViewState?: {
     longitude: number;
     latitude: number;
     zoom: number;
   };
+  /** Max bounds to restrict map panning (Firestore format) */
+  maxBounds?: BoundingBox;
+  /** Callback when map stops moving */
   onMoveEnd?: (bounds: LngLatBounds) => void;
   /** Callback when map is ready, provides handle for parent to use */
   onMapReady?: (handle: MapCanvasHandle) => void;
@@ -53,7 +70,9 @@ interface MapCanvasProps {
 export default function MapCanvas({
   className = '',
   mapStyle = 'basic',
+  styleUrl: customStyleUrl,
   initialViewState,
+  maxBounds,
   onMoveEnd,
   onMapReady,
 }: MapCanvasProps) {
@@ -61,10 +80,23 @@ export default function MapCanvas({
   const [viewState, setViewState] = useState(
     initialViewState || DEFAULT_VIEW_STATE
   );
-  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Get the style URL based on the style key
-  const styleUrl = MAP_STYLES[mapStyle];
+  // Use custom styleUrl if provided, otherwise use mapStyle key
+  const styleUrl = customStyleUrl || MAP_STYLES[mapStyle];
+
+  // Convert Firestore boundingBox format to MapLibre format
+  // MapLibre expects: [[west, south], [east, north]] or [west, south, east, north]
+  const mapLibreMaxBounds = useMemo((): LngLatBoundsLike | undefined => {
+    if (!maxBounds) return undefined;
+    
+    // Return as [west, south, east, north] array
+    return [
+      maxBounds.west,
+      maxBounds.south,
+      maxBounds.east,
+      maxBounds.north,
+    ];
+  }, [maxBounds]);
 
   // Create the handle object
   const createHandle = useCallback((): MapCanvasHandle => ({
@@ -86,7 +118,6 @@ export default function MapCanvas({
 
   // Notify parent when map is loaded
   const handleLoad = useCallback(() => {
-    setIsLoaded(true);
     if (onMapReady) {
       onMapReady(createHandle());
     }
@@ -115,6 +146,7 @@ export default function MapCanvas({
         onLoad={handleLoad}
         style={{ width: '100%', height: '100%' }}
         mapStyle={styleUrl}
+        maxBounds={mapLibreMaxBounds}
         attributionControl={true}
       />
     </div>

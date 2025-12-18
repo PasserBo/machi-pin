@@ -129,11 +129,10 @@ export default function MapDetailPage() {
             <div className="absolute inset-0">
               <MapCanvas
                 styleUrl={mapData.styleUrl}
-                initialViewState={{
-                  longitude: mapData.center.lng,
-                  latitude: mapData.center.lat,
-                  zoom: mapData.zoom,
-                }}
+                // Use fitBounds to perfectly fit the saved viewfinder area
+                fitBounds={mapData.boundingBox as BoundingBox}
+                fitBoundsPadding={20}
+                // Also set maxBounds to restrict panning to the saved area
                 maxBounds={mapData.boundingBox as BoundingBox}
               />
             </div>

@@ -7,7 +7,7 @@ import {
   useMemo,
 } from 'react';
 import Map, { MapRef, ViewStateChangeEvent } from 'react-map-gl/maplibre';
-import type { LngLatBounds, LngLatBoundsLike } from 'maplibre-gl';
+import type { LngLatBounds, LngLatBoundsLike, FitBoundsOptions } from 'maplibre-gl';
 
 // Maptiler API key
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
@@ -61,6 +61,10 @@ interface MapCanvasProps {
   };
   /** Max bounds to restrict map panning (Firestore format) */
   maxBounds?: BoundingBox;
+  /** Fit to bounds on load (overrides initialViewState) */
+  fitBounds?: BoundingBox;
+  /** Padding for fitBounds */
+  fitBoundsPadding?: number;
   /** Callback when map stops moving */
   onMoveEnd?: (bounds: LngLatBounds) => void;
   /** Callback when map is ready, provides handle for parent to use */
@@ -73,6 +77,8 @@ export default function MapCanvas({
   styleUrl: customStyleUrl,
   initialViewState,
   maxBounds,
+  fitBounds,
+  fitBoundsPadding = 20,
   onMoveEnd,
   onMapReady,
 }: MapCanvasProps) {
@@ -116,12 +122,27 @@ export default function MapCanvas({
     },
   }), []);
 
-  // Notify parent when map is loaded
+  // Notify parent when map is loaded and apply fitBounds if specified
   const handleLoad = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    
+    // If fitBounds is specified, fit the map to those bounds
+    if (map && fitBounds) {
+      const bounds: LngLatBoundsLike = [
+        [fitBounds.west, fitBounds.south], // sw
+        [fitBounds.east, fitBounds.north], // ne
+      ];
+      
+      map.fitBounds(bounds, {
+        padding: fitBoundsPadding,
+        duration: 0, // Instant on load
+      } as FitBoundsOptions);
+    }
+    
     if (onMapReady) {
       onMapReady(createHandle());
     }
-  }, [onMapReady, createHandle]);
+  }, [onMapReady, createHandle, fitBounds, fitBoundsPadding]);
 
   const handleMove = useCallback((evt: ViewStateChangeEvent) => {
     setViewState(evt.viewState);

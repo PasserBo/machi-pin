@@ -10,6 +10,9 @@ import type { MapCanvasHandle, MapStyleKey } from '@/components/MapCanvas';
 import { MAP_STYLES } from '@/components/MapCanvas';
 import type { MapDocument } from '@repo/types';
 
+// Viewfinder element ID for getting bounding rect
+const VIEWFINDER_ID = 'map-viewfinder-frame';
+
 // Dynamic import to avoid SSR issues with maplibre-gl
 const MapCanvas = dynamic(() => import('@/components/MapCanvas'), {
   ssr: false,
@@ -48,6 +51,47 @@ export default function NewMapPage() {
     setIsMapReady(true);
   }, []);
 
+  /**
+   * Calculate the bounding box of the viewfinder area
+   * Uses map.unproject() to convert pixel coordinates to lat/lng
+   */
+  const getViewfinderBounds = useCallback(() => {
+    const map = mapHandleRef.current?.getMap();
+    if (!map) return null;
+
+    // Get the viewfinder element
+    const viewfinderEl = document.getElementById(VIEWFINDER_ID);
+    if (!viewfinderEl) {
+      console.error('Viewfinder element not found');
+      return null;
+    }
+
+    // Get the pixel coordinates of the viewfinder corners
+    const rect = viewfinderEl.getBoundingClientRect();
+    
+    // Convert pixel coordinates to lat/lng using map.unproject()
+    // unproject takes [x, y] pixel coordinates and returns LngLat
+    const topLeft = map.unproject([rect.left, rect.top]);
+    const topRight = map.unproject([rect.right, rect.top]);
+    const bottomLeft = map.unproject([rect.left, rect.bottom]);
+    const bottomRight = map.unproject([rect.right, rect.bottom]);
+
+    // Calculate bounding box
+    const north = Math.max(topLeft.lat, topRight.lat);
+    const south = Math.min(bottomLeft.lat, bottomRight.lat);
+    const east = Math.max(topRight.lng, bottomRight.lng);
+    const west = Math.min(topLeft.lng, bottomLeft.lng);
+
+    // Calculate center of the viewfinder
+    const centerLng = (east + west) / 2;
+    const centerLat = (north + south) / 2;
+
+    return {
+      boundingBox: { north, south, east, west },
+      center: { lat: centerLat, lng: centerLng },
+    };
+  }, []);
+
   // Open the naming modal
   const handleCutClick = useCallback(() => {
     // Check if user is logged in first
@@ -65,15 +109,15 @@ export default function NewMapPage() {
       return;
     }
     
-    // Check if we can get map data
-    const bounds = mapHandleRef.current.getBounds();
-    if (!bounds) {
-      setError('无法获取地图数据，请稍后再试');
+    // Check if we can get viewfinder bounds
+    const viewfinderData = getViewfinderBounds();
+    if (!viewfinderData) {
+      setError('无法获取取景框数据，请稍后再试');
       return;
     }
     
     setIsModalOpen(true);
-  }, [user, router, isMapReady]);
+  }, [user, router, isMapReady, getViewfinderBounds]);
 
   // Handle save after user confirms the name
   const handleSave = useCallback(async (mapName: string) => {
@@ -88,11 +132,11 @@ export default function NewMapPage() {
       return;
     }
 
-    const bounds = mapHandleRef.current.getBounds();
-    const center = mapHandleRef.current.getCenter();
+    // Get viewfinder bounds (the actual area user selected)
+    const viewfinderData = getViewfinderBounds();
     const zoom = mapHandleRef.current.getZoom();
 
-    if (!bounds || !center || zoom === undefined) {
+    if (!viewfinderData || zoom === undefined) {
       setError('无法获取地图状态，请重试');
       return;
     }
@@ -101,13 +145,7 @@ export default function NewMapPage() {
     setError(null);
 
     try {
-      // Extract bounding box from MapLibre bounds object
-      const boundingBox = {
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      };
+      const { boundingBox, center } = viewfinderData;
 
       // Prepare the document data
       const mapData: Omit<MapDocument, 'id'> = {
@@ -117,7 +155,7 @@ export default function NewMapPage() {
         styleUrl: MAP_STYLES[selectedStyle],
         boundingBox,
         center,
-        zoom,
+        zoom, // Store current zoom as reference
         pinCount: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -134,7 +172,7 @@ export default function NewMapPage() {
       setError('保存失败，请重试。' + (err instanceof Error ? ` (${err.message})` : ''));
       setIsSaving(false);
     }
-  }, [user, router, selectedStyle, firebaseUser]);
+  }, [user, router, selectedStyle, firebaseUser, getViewfinderBounds]);
 
   // Close modal
   const handleCloseModal = useCallback(() => {
@@ -275,8 +313,9 @@ export default function NewMapPage() {
 function ViewfinderOverlay() {
   return (
     <div className="w-full h-full flex items-center justify-center">
-      {/* The viewfinder frame */}
+      {/* The viewfinder frame - has ID for getBoundingClientRect() */}
       <div
+        id={VIEWFINDER_ID}
         className="relative"
         style={{
           width: '80%',

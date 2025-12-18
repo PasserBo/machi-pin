@@ -6,12 +6,21 @@ import {
   useRef,
   useState,
   useCallback,
+  useEffect,
 } from 'react';
 import Map, { MapRef, ViewStateChangeEvent } from 'react-map-gl/maplibre';
 import type { LngLatBounds } from 'maplibre-gl';
 
-// Maptiler Basic style URL
-const MAPTILER_STYLE = `https://api.maptiler.com/maps/base-v4/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`;
+// Maptiler API key
+const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+
+// Available map styles
+export const MAP_STYLES = {
+  basic: `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTILER_KEY}`,
+  streets: `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
+} as const;
+
+export type MapStyleKey = keyof typeof MAP_STYLES;
 
 // Default view state (Tokyo)
 const DEFAULT_VIEW_STATE = {
@@ -27,6 +36,7 @@ export interface MapCanvasHandle {
 
 interface MapCanvasProps {
   className?: string;
+  mapStyle?: MapStyleKey;
   initialViewState?: {
     longitude: number;
     latitude: number;
@@ -36,11 +46,14 @@ interface MapCanvasProps {
 }
 
 const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(
-  ({ className = '', initialViewState, onMoveEnd }, ref) => {
+  ({ className = '', mapStyle = 'basic', initialViewState, onMoveEnd }, ref) => {
     const mapRef = useRef<MapRef>(null);
     const [viewState, setViewState] = useState(
       initialViewState || DEFAULT_VIEW_STATE
     );
+
+    // Get the style URL based on the style key
+    const styleUrl = MAP_STYLES[mapStyle];
 
     // Expose methods to parent via ref
     useImperativeHandle(ref, () => ({
@@ -71,7 +84,7 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(
           onMove={handleMove}
           onMoveEnd={handleMoveEnd}
           style={{ width: '100%', height: '100%' }}
-          mapStyle={MAPTILER_STYLE}
+          mapStyle={styleUrl}
           attributionControl={true}
         />
       </div>
@@ -82,4 +95,3 @@ const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(
 MapCanvas.displayName = 'MapCanvas';
 
 export default MapCanvas;
-

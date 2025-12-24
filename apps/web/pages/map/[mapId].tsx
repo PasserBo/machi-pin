@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -8,8 +8,12 @@ import { db } from '@/lib/firebaseClient';
 import { useAuth } from '@/lib/auth/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import PinToolbar from '@/components/PinToolbar';
+import DragOverlay from '@/components/DragOverlay';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useEdgeScroll } from '@/hooks/useEdgeScroll';
 import type { MapDocument, PinColor } from '@repo/types';
-import type { BoundingBox } from '@/components/MapCanvas';
+import type { BoundingBox, MapCanvasHandle } from '@/components/MapCanvas';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 
 // Dynamic import to avoid SSR issues with maplibre-gl
 const MapCanvas = dynamic(() => import('@/components/MapCanvas'), {
@@ -29,15 +33,175 @@ interface MapData extends MapDocument {
   id: string;
 }
 
+// Drag state interface
+interface DragState {
+  isDragging: boolean;
+  color: PinColor | null;
+  position: { x: number; y: number };
+}
+
+// Y-offset for mobile to avoid finger obstruction
+const MOBILE_DRAG_OFFSET_Y = 80;
+const DESKTOP_DRAG_OFFSET_Y = 0;
+
 export default function MapDetailPage() {
   const router = useRouter();
   const { mapId } = router.query;
   const { firebaseUser } = useAuth();
   
+  // Map data state
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPinColor, setSelectedPinColor] = useState<PinColor | null>(null);
+
+  // Map reference
+  const mapHandleRef = useRef<MapCanvasHandle | null>(null);
+
+  // Device detection
+  const isMobile = useIsMobile();
+
+  // Drag state
+  const [dragState, setDragState] = useState<DragState>({
+    isDragging: false,
+    color: null,
+    position: { x: 0, y: 0 },
+  });
+
+  // Get map instance for edge scrolling
+  const getMap = useCallback((): MapLibreMap | undefined => {
+    return mapHandleRef.current?.getMap();
+  }, []);
+
+  // Edge scrolling hook (desktop only)
+  const { updatePosition: updateEdgeScrollPosition, stopScroll } = useEdgeScroll(
+    getMap,
+    { enabled: !isMobile && dragState.isDragging }
+  );
+
+  // Handle map ready
+  const handleMapReady = useCallback((handle: MapCanvasHandle) => {
+    mapHandleRef.current = handle;
+  }, []);
+
+  // Handle drag start from toolbar
+  const handleDragStart = useCallback((event: { color: PinColor; position: { x: number; y: number } }) => {
+    setDragState({
+      isDragging: true,
+      color: event.color,
+      position: event.position,
+    });
+  }, []);
+
+  // Handle drag move
+  const handleDragMove = useCallback((clientX: number, clientY: number) => {
+    if (!dragState.isDragging) return;
+
+    // Update drag position
+    setDragState(prev => ({
+      ...prev,
+      position: { x: clientX, y: clientY },
+    }));
+
+    // Desktop only: edge scrolling
+    if (!isMobile) {
+      updateEdgeScrollPosition(clientX, clientY);
+    }
+  }, [dragState.isDragging, isMobile, updateEdgeScrollPosition]);
+
+  // Handle drag end
+  const handleDragEnd = useCallback((clientX: number, clientY: number) => {
+    if (!dragState.isDragging || !dragState.color) return;
+
+    // Stop edge scrolling
+    stopScroll();
+
+    // Calculate the actual drop position (accounting for mobile offset)
+    const offsetY = isMobile ? MOBILE_DRAG_OFFSET_Y : DESKTOP_DRAG_OFFSET_Y;
+    const dropY = clientY - offsetY;
+
+    // Get the map instance
+    const map = mapHandleRef.current?.getMap();
+    if (map) {
+      // Convert screen coordinates to map coordinates
+      const lngLat = map.unproject([clientX, dropY]);
+      
+      console.log('Pin dropped at:', {
+        screen: { x: clientX, y: dropY },
+        lngLat: { lng: lngLat.lng, lat: lngLat.lat },
+        color: dragState.color,
+      });
+
+      // TODO: Create pin in Firestore
+      // For now, just log the drop location
+    }
+
+    // Reset drag state
+    setDragState({
+      isDragging: false,
+      color: null,
+      position: { x: 0, y: 0 },
+    });
+  }, [dragState.isDragging, dragState.color, isMobile, stopScroll]);
+
+  // Handle drag cancel (e.g., escape key, drag out of bounds)
+  const handleDragCancel = useCallback(() => {
+    stopScroll();
+    setDragState({
+      isDragging: false,
+      color: null,
+      position: { x: 0, y: 0 },
+    });
+  }, [stopScroll]);
+
+  // Global event listeners for drag using Pointer Events (unified mouse/touch/pen)
+  useEffect(() => {
+    if (!dragState.isDragging) return;
+
+    // Pointer events (unified for mouse, touch, pen)
+    const handlePointerMove = (e: PointerEvent) => {
+      // Prevent default to avoid scrolling on touch devices
+      e.preventDefault();
+      handleDragMove(e.clientX, e.clientY);
+    };
+
+    const handlePointerUp = (e: PointerEvent) => {
+      handleDragEnd(e.clientX, e.clientY);
+    };
+
+    const handlePointerCancel = () => {
+      handleDragCancel();
+    };
+
+    // Keyboard events
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleDragCancel();
+      }
+    };
+
+    // Prevent touch scrolling during drag
+    const preventTouchScroll = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    // Add listeners
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    window.addEventListener('keydown', handleKeyDown);
+    // Also prevent touch scrolling
+    window.addEventListener('touchmove', preventTouchScroll, { passive: false });
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('touchmove', preventTouchScroll);
+    };
+  }, [dragState.isDragging, handleDragMove, handleDragEnd, handleDragCancel]);
 
   // Fetch map data from Firestore
   useEffect(() => {
@@ -136,6 +300,7 @@ export default function MapDetailPage() {
                 fitBoundsPadding={20}
                 // Also set maxBounds to restrict panning to the saved area
                 maxBounds={mapData.boundingBox as BoundingBox}
+                onMapReady={handleMapReady}
               />
             </div>
 
@@ -170,7 +335,19 @@ export default function MapDetailPage() {
                 // Toggle selection: clicking same color deselects
                 setSelectedPinColor(prev => prev === color ? null : color);
               }}
+              onDragStart={handleDragStart}
+              isDragging={dragState.isDragging}
             />
+
+            {/* Drag Overlay */}
+            {dragState.isDragging && dragState.color && (
+              <DragOverlay
+                isDragging={dragState.isDragging}
+                position={dragState.position}
+                color={dragState.color}
+                offsetY={isMobile ? MOBILE_DRAG_OFFSET_Y : DESKTOP_DRAG_OFFSET_Y}
+              />
+            )}
           </>
         )}
       </div>

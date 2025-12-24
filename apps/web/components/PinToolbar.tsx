@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { PinColor } from '@repo/types';
 
 /**
- * Pin color configuration
+ * Pin color configuration - exported for reuse
  */
-const PIN_COLORS: { color: PinColor; bgClass: string; shadowClass: string; label: string }[] = [
+export const PIN_COLORS: { color: PinColor; bgClass: string; shadowClass: string; label: string }[] = [
   {
     color: 'red',
     bgClass: 'bg-red-500',
@@ -25,17 +25,58 @@ const PIN_COLORS: { color: PinColor; bgClass: string; shadowClass: string; label
   },
 ];
 
+interface DragStartEvent {
+  color: PinColor;
+  position: { x: number; y: number };
+}
+
 interface PinToolbarProps {
   onSelectColor?: (color: PinColor) => void;
   selectedColor?: PinColor | null;
+  /** Called when user starts dragging a pin */
+  onDragStart?: (event: DragStartEvent) => void;
+  /** Whether dragging is currently active (hides toolbar) */
+  isDragging?: boolean;
 }
 
 /**
  * PinToolbar - A dock-like toolbar for selecting pin colors
  * Positioned at the bottom of the screen with a glass-morphism effect
+ * Supports both click-to-select and drag-to-place interactions
  */
-export default function PinToolbar({ onSelectColor, selectedColor }: PinToolbarProps) {
+export default function PinToolbar({
+  onSelectColor,
+  selectedColor,
+  onDragStart,
+  isDragging = false,
+}: PinToolbarProps) {
   const [hoveredColor, setHoveredColor] = useState<PinColor | null>(null);
+
+  /**
+   * Handle pointer down (unified for mouse, touch, pen)
+   * Uses Pointer Events API for cross-platform compatibility
+   */
+  const handlePointerDown = useCallback(
+    (color: PinColor, e: React.PointerEvent<HTMLButtonElement>) => {
+      // Prevent default to avoid text selection and other side effects
+      e.preventDefault();
+      
+      // Get the pointer position
+      const position = {
+        x: e.clientX,
+        y: e.clientY,
+      };
+
+      // Notify parent about drag start
+      onDragStart?.({ color, position });
+    },
+    [onDragStart]
+  );
+
+  // Hide toolbar during drag
+  if (isDragging) {
+    return null;
+  }
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none pb-6 sm:pb-8">
@@ -54,6 +95,7 @@ export default function PinToolbar({ onSelectColor, selectedColor }: PinToolbarP
                   type="button"
                   aria-label={label}
                   onClick={() => onSelectColor?.(color)}
+                  onPointerDown={(e) => handlePointerDown(color, e)}
                   onMouseEnter={() => setHoveredColor(color)}
                   onMouseLeave={() => setHoveredColor(null)}
                   className={`
@@ -61,6 +103,7 @@ export default function PinToolbar({ onSelectColor, selectedColor }: PinToolbarP
                     w-11 h-11 sm:w-14 sm:h-14
                     rounded-full
                     transition-all duration-200 ease-out
+                    touch-none select-none
                     ${isSelected ? 'scale-110' : isHovered ? 'scale-105' : 'scale-100'}
                     ${isSelected ? 'ring-2 ring-offset-2 ring-gray-800' : ''}
                     focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-800
@@ -120,8 +163,8 @@ export default function PinToolbar({ onSelectColor, selectedColor }: PinToolbarP
 
             {/* Help Text / Instructions */}
             <div className="hidden sm:flex flex-col items-start text-xs text-gray-500">
-              <span className="font-medium text-gray-700">Select a pin</span>
-              <span>then tap on the map</span>
+              <span className="font-medium text-gray-700">Drag a pin</span>
+              <span>onto the map</span>
             </div>
           </div>
         </div>
@@ -129,4 +172,3 @@ export default function PinToolbar({ onSelectColor, selectedColor }: PinToolbarP
     </div>
   );
 }
-

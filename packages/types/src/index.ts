@@ -142,3 +142,43 @@ export type UpdatePinInput = Partial<Omit<Pin, 'id' | 'userId' | 'mapId' | 'crea
  */
 export type UpdateMapInput = Partial<Omit<Map, 'id' | 'userId' | 'createdAt'>>;
 
+/**
+ * Pin color options
+ */
+export type PinColor = 'red' | 'blue' | 'yellow';
+
+/**
+ * Pin icon type options
+ */
+export type PinIconType = 'standard';
+
+/**
+ * PinDocument - Firestore document structure for pins
+ * Used for storing pin data on maps
+ */
+export interface PinDocument {
+  id?: string;                    // Firestore Doc ID (optional, added after creation)
+  mapId: string;                  // Parent map ID
+  ownerUid: string;               // Creator's UID
+  
+  // Location data
+  location: {
+    lat: number;
+    lng: number;
+  };
+  
+  // Visual style
+  style: {
+    color: PinColor;              // Pin color (red, blue, yellow)
+    iconType: PinIconType;        // Icon type (currently only 'standard')
+  };
+  
+  // Metadata
+  createdAt: unknown;             // Firestore Timestamp
+}
+
+/**
+ * Create PinDocument input (for form submission)
+ */
+export type CreatePinDocumentInput = Omit<PinDocument, 'id' | 'createdAt'>;
+

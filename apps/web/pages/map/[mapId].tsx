@@ -7,7 +7,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
 import { useAuth } from '@/lib/auth/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import type { MapDocument } from '@repo/types';
+import PinToolbar from '@/components/PinToolbar';
+import type { MapDocument, PinColor } from '@repo/types';
 import type { BoundingBox } from '@/components/MapCanvas';
 
 // Dynamic import to avoid SSR issues with maplibre-gl
@@ -36,6 +37,7 @@ export default function MapDetailPage() {
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPinColor, setSelectedPinColor] = useState<PinColor | null>(null);
 
   // Fetch map data from Firestore
   useEffect(() => {
@@ -161,24 +163,14 @@ export default function MapDetailPage() {
               </div>
             </div>
 
-            {/* Bottom: Future Pin Toolbar Placeholder */}
-            <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
-              <div className="flex justify-center pb-8">
-                {/* Placeholder for future Add Pin button */}
-                <div className="pointer-events-auto">
-                  <button
-                    className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-full shadow-xl hover:bg-gray-800 active:scale-[0.98] transition-all font-semibold"
-                    onClick={() => {
-                      // TODO: Implement add pin functionality
-                      alert('Add Pin feature coming soon!');
-                    }}
-                  >
-                    <span className="text-lg">+</span>
-                    Add Pin
-                  </button>
-                </div>
-              </div>
-            </div>
+            {/* Bottom: Pin Toolbar */}
+            <PinToolbar
+              selectedColor={selectedPinColor}
+              onSelectColor={(color) => {
+                // Toggle selection: clicking same color deselects
+                setSelectedPinColor(prev => prev === color ? null : color);
+              }}
+            />
           </>
         )}
       </div>

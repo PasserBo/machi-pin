@@ -3,7 +3,8 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, updateDoc, increment, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { Marker } from 'react-map-gl/maplibre';
 import { db } from '@/lib/firebaseClient';
 import { useAuth } from '@/lib/auth/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -11,7 +12,8 @@ import PinToolbar from '@/components/PinToolbar';
 import DragOverlay from '@/components/DragOverlay';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useEdgeScroll } from '@/hooks/useEdgeScroll';
-import type { MapDocument, PinColor } from '@repo/types';
+import type { MapDocument, PinColor, CreatePinDocumentInput, PinDocument } from '@repo/types';
+import PinMarker from '@/components/PinMarker';
 import type { BoundingBox, MapCanvasHandle } from '@/components/MapCanvas';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 
@@ -40,9 +42,9 @@ interface DragState {
   position: { x: number; y: number };
 }
 
-// Y-offset for mobile to avoid finger obstruction
-const MOBILE_DRAG_OFFSET_Y = 80;
-const DESKTOP_DRAG_OFFSET_Y = 0;
+// Y-offset to avoid cursor/finger obstruction
+const MOBILE_DRAG_OFFSET_Y = 60;
+const DESKTOP_DRAG_OFFSET_Y = 24;
 
 export default function MapDetailPage() {
   const router = useRouter();
@@ -54,6 +56,12 @@ export default function MapDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPinColor, setSelectedPinColor] = useState<PinColor | null>(null);
+
+  // Pins state (with id for rendering)
+  interface PinWithId extends PinDocument {
+    id: string;
+  }
+  const [pins, setPins] = useState<PinWithId[]>([]);
 
   // Map reference
   const mapHandleRef = useRef<MapCanvasHandle | null>(null);
@@ -110,30 +118,76 @@ export default function MapDetailPage() {
   }, [dragState.isDragging, isMobile, updateEdgeScrollPosition]);
 
   // Handle drag end
-  const handleDragEnd = useCallback((clientX: number, clientY: number) => {
+  const handleDragEnd = useCallback(async (clientX: number, clientY: number) => {
     if (!dragState.isDragging || !dragState.color) return;
+    if (!mapId || typeof mapId !== 'string') return;
+    if (!firebaseUser?.uid) return;
 
     // Stop edge scrolling
     stopScroll();
 
-    // Calculate the actual drop position (accounting for mobile offset)
+    // Calculate the actual drop position (accounting for offset)
+    // This ensures the pin tip (not the cursor/finger) determines the location
     const offsetY = isMobile ? MOBILE_DRAG_OFFSET_Y : DESKTOP_DRAG_OFFSET_Y;
     const dropY = clientY - offsetY;
 
     // Get the map instance
     const map = mapHandleRef.current?.getMap();
-    if (map) {
-      // Convert screen coordinates to map coordinates
-      const lngLat = map.unproject([clientX, dropY]);
-      
-      console.log('Pin dropped at:', {
-        screen: { x: clientX, y: dropY },
-        lngLat: { lng: lngLat.lng, lat: lngLat.lat },
+    if (!map) {
+      console.error('Map instance not available');
+      setDragState({ isDragging: false, color: null, position: { x: 0, y: 0 } });
+      return;
+    }
+
+    // Convert screen coordinates to map coordinates (lng/lat)
+    const lngLat = map.unproject([clientX, dropY]);
+    
+    // Prepare pin data for Firestore
+    const pinData: CreatePinDocumentInput = {
+      mapId: mapId,
+      ownerUid: firebaseUser.uid,
+      location: {
+        lat: lngLat.lat,
+        lng: lngLat.lng,
+      },
+      style: {
         color: dragState.color,
+        iconType: 'standard',
+      },
+    };
+
+    try {
+      // Save pin to Firestore subcollection: maps/{mapId}/pins
+      const pinsCollectionRef = collection(db, 'maps', mapId, 'pins');
+      const pinDocRef = await addDoc(pinsCollectionRef, {
+        ...pinData,
+        createdAt: serverTimestamp(),
       });
 
-      // TODO: Create pin in Firestore
-      // For now, just log the drop location
+      // Update map's pinCount
+      const mapDocRef = doc(db, 'maps', mapId);
+      await updateDoc(mapDocRef, {
+        pinCount: increment(1),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Update local state for pinCount
+      setMapData(prev => prev ? { ...prev, pinCount: (prev.pinCount || 0) + 1 } : prev);
+
+      // Success feedback (placeholder for sound/vibration)
+      console.log('✅ Pin created successfully:', {
+        pinId: pinDocRef.id,
+        location: { lat: lngLat.lat, lng: lngLat.lng },
+        color: dragState.color,
+      });
+      
+      // TODO: Play success sound or vibration
+      // if ('vibrate' in navigator) navigator.vibrate(50);
+      // playSound('pin-drop');
+
+    } catch (error) {
+      console.error('❌ Failed to create pin:', error);
+      // TODO: Show error toast to user
     }
 
     // Reset drag state
@@ -142,7 +196,7 @@ export default function MapDetailPage() {
       color: null,
       position: { x: 0, y: 0 },
     });
-  }, [dragState.isDragging, dragState.color, isMobile, stopScroll]);
+  }, [dragState.isDragging, dragState.color, mapId, firebaseUser?.uid, isMobile, stopScroll]);
 
   // Handle drag cancel (e.g., escape key, drag out of bounds)
   const handleDragCancel = useCallback(() => {
@@ -250,6 +304,35 @@ export default function MapDetailPage() {
     fetchMap();
   }, [mapId, firebaseUser?.uid]);
 
+  // Subscribe to pins collection in real-time
+  useEffect(() => {
+    if (!mapId || typeof mapId !== 'string') return;
+    if (!firebaseUser?.uid) return;
+
+    // Create reference to pins subcollection
+    const pinsCollectionRef = collection(db, 'maps', mapId, 'pins');
+
+    // Subscribe to real-time updates
+    const unsubscribe = onSnapshot(
+      pinsCollectionRef,
+      (snapshot) => {
+        const pinsData: PinWithId[] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as PinWithId[];
+        
+        setPins(pinsData);
+        console.log(`📍 Loaded ${pinsData.length} pins`);
+      },
+      (err) => {
+        console.error('Failed to subscribe to pins:', err);
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [mapId, firebaseUser?.uid]);
+
   return (
     <ProtectedRoute>
       <Head>
@@ -301,7 +384,25 @@ export default function MapDetailPage() {
                 // Also set maxBounds to restrict panning to the saved area
                 maxBounds={mapData.boundingBox as BoundingBox}
                 onMapReady={handleMapReady}
-              />
+              >
+                {/* Render Pin Markers */}
+                {pins.map((pin) => (
+                  <Marker
+                    key={pin.id}
+                    longitude={pin.location.lng}
+                    latitude={pin.location.lat}
+                    anchor="bottom"
+                  >
+                    <PinMarker
+                      color={pin.style.color}
+                      onClick={() => {
+                        // TODO: Open pin detail modal
+                        console.log('Pin clicked:', pin.id);
+                      }}
+                    />
+                  </Marker>
+                ))}
+              </MapCanvas>
             </div>
 
             {/* Top Left: Back Button */}

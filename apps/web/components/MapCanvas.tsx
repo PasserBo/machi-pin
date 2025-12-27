@@ -5,6 +5,7 @@ import {
   useState,
   useCallback,
   useMemo,
+  type ReactNode,
 } from 'react';
 import Map, { MapRef, ViewStateChangeEvent } from 'react-map-gl/maplibre';
 import type { LngLatBounds, LngLatBoundsLike, FitBoundsOptions } from 'maplibre-gl';
@@ -69,6 +70,8 @@ interface MapCanvasProps {
   onMoveEnd?: (bounds: LngLatBounds) => void;
   /** Callback when map is ready, provides handle for parent to use */
   onMapReady?: (handle: MapCanvasHandle) => void;
+  /** Children to render inside the map (e.g., Markers, Popups) */
+  children?: ReactNode;
 }
 
 export default function MapCanvas({
@@ -81,6 +84,7 @@ export default function MapCanvas({
   fitBoundsPadding = 20,
   onMoveEnd,
   onMapReady,
+  children,
 }: MapCanvasProps) {
   const mapRef = useRef<MapRef>(null);
   const [viewState, setViewState] = useState(
@@ -169,7 +173,9 @@ export default function MapCanvas({
         mapStyle={styleUrl}
         maxBounds={mapLibreMaxBounds}
         attributionControl={true}
-      />
+      >
+        {children}
+      </Map>
     </div>
   );
 }

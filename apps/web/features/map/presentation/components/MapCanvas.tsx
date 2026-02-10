@@ -95,11 +95,8 @@ export default function MapCanvas({
   const styleUrl = customStyleUrl || MAP_STYLES[mapStyle];
 
   // Convert Firestore boundingBox format to MapLibre format
-  // MapLibre expects: [[west, south], [east, north]] or [west, south, east, north]
   const mapLibreMaxBounds = useMemo((): LngLatBoundsLike | undefined => {
     if (!maxBounds) return undefined;
-    
-    // Return as [west, south, east, north] array
     return [
       maxBounds.west,
       maxBounds.south,
@@ -108,44 +105,30 @@ export default function MapCanvas({
     ];
   }, [maxBounds]);
 
-  // Create the handle object
   const createHandle = useCallback((): MapCanvasHandle => ({
-    getBounds: () => {
-      return mapRef.current?.getMap()?.getBounds();
-    },
+    getBounds: () => mapRef.current?.getMap()?.getBounds(),
     getCenter: () => {
       const center = mapRef.current?.getMap()?.getCenter();
       if (!center) return undefined;
       return { lat: center.lat, lng: center.lng };
     },
-    getZoom: () => {
-      return mapRef.current?.getMap()?.getZoom();
-    },
-    getMap: () => {
-      return mapRef.current?.getMap();
-    },
+    getZoom: () => mapRef.current?.getMap()?.getZoom(),
+    getMap: () => mapRef.current?.getMap(),
   }), []);
 
-  // Notify parent when map is loaded and apply fitBounds if specified
   const handleLoad = useCallback(() => {
     const map = mapRef.current?.getMap();
-    
-    // If fitBounds is specified, fit the map to those bounds
     if (map && fitBounds) {
       const bounds: LngLatBoundsLike = [
-        [fitBounds.west, fitBounds.south], // sw
-        [fitBounds.east, fitBounds.north], // ne
+        [fitBounds.west, fitBounds.south],
+        [fitBounds.east, fitBounds.north],
       ];
-      
       map.fitBounds(bounds, {
         padding: fitBoundsPadding,
-        duration: 0, // Instant on load
+        duration: 0,
       } as FitBoundsOptions);
     }
-    
-    if (onMapReady) {
-      onMapReady(createHandle());
-    }
+    if (onMapReady) onMapReady(createHandle());
   }, [onMapReady, createHandle, fitBounds, fitBoundsPadding]);
 
   const handleMove = useCallback((evt: ViewStateChangeEvent) => {
@@ -155,9 +138,7 @@ export default function MapCanvas({
   const handleMoveEnd = useCallback(() => {
     if (onMoveEnd && mapRef.current) {
       const bounds = mapRef.current.getMap()?.getBounds();
-      if (bounds) {
-        onMoveEnd(bounds);
-      }
+      if (bounds) onMoveEnd(bounds);
     }
   }, [onMoveEnd]);
 

@@ -18,37 +18,25 @@ export default function MapNameModal({
   const [name, setName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus input when modal opens
   useEffect(() => {
     if (isOpen) {
       setName('');
-      // Small delay to ensure the modal is rendered
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
 
-  // Handle keyboard events
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && !isLoading) {
-        onClose();
-      } else if (e.key === 'Enter' && name.trim() && !isLoading) {
-        onConfirm(name.trim());
-      }
+      if (e.key === 'Escape' && !isLoading) onClose();
+      else if (e.key === 'Enter' && name.trim() && !isLoading) onConfirm(name.trim());
     },
     [name, isLoading, onClose, onConfirm]
   );
 
-  // Handle confirm
   const handleConfirm = useCallback(() => {
-    if (name.trim() && !isLoading) {
-      onConfirm(name.trim());
-    }
+    if (name.trim() && !isLoading) onConfirm(name.trim());
   }, [name, isLoading, onConfirm]);
 
-  // Don't render if not open
   if (!isOpen) return null;
 
   return (
@@ -56,32 +44,20 @@ export default function MapNameModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onKeyDown={handleKeyDown}
     >
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
         onClick={!isLoading ? onClose : undefined}
       />
-
-      {/* Modal Card */}
       <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl animate-scale-in overflow-hidden">
-        {/* Decorative header gradient */}
         <div className="h-2 bg-gradient-to-r from-gray-800 via-gray-600 to-gray-800" />
-
         <div className="p-6 space-y-6">
-          {/* Icon and Title */}
           <div className="text-center space-y-2">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-100 mb-2">
               <span className="text-3xl">🗺️</span>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              给这张地图起个名字
-            </h2>
-            <p className="text-gray-500 text-sm">
-              为你的新地图取一个有意义的名字吧
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900">给这张地图起个名字</h2>
+            <p className="text-gray-500 text-sm">为你的新地图取一个有意义的名字吧</p>
           </div>
-
-          {/* Input */}
           <div className="space-y-2">
             <input
               ref={inputRef}
@@ -93,12 +69,8 @@ export default function MapNameModal({
               className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-2xl focus:border-black focus:ring-0 focus:outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-400 placeholder:text-gray-300"
               maxLength={50}
             />
-            <p className="text-right text-xs text-gray-400">
-              {name.length}/50
-            </p>
+            <p className="text-right text-xs text-gray-400">{name.length}/50</p>
           </div>
-
-          {/* Buttons */}
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -118,44 +90,18 @@ export default function MapNameModal({
                   保存中...
                 </>
               ) : (
-                <>
-                  <span>✨</span>
-                  创建地图
-                </>
+                <>✨ 创建地图</>
               )}
             </button>
           </div>
         </div>
       </div>
-
-      {/* Animation styles */}
       <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out forwards;
-        }
-        .animate-scale-in {
-          animation: scale-in 0.25s ease-out forwards;
-        }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scale-in { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+        .animate-scale-in { animation: scale-in 0.25s ease-out forwards; }
       `}</style>
     </div>
   );
 }
-

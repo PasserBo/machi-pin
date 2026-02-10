@@ -29,28 +29,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Sync user data from Firestore
   const syncUserData = async (firebaseUser: FirebaseUser) => {
     try {
       const userRef = doc(db, 'users', firebaseUser.uid);
       const userSnap = await getDoc(userRef);
 
       if (userSnap.exists()) {
-        // User exists in Firestore
-        setUser(userSnap.data() as User);
+        const data = userSnap.data() as Record<string, unknown>;
+        setUser({
+          id: (data.uid as string) || (data.id as string),
+          email: (data.email as string) ?? '',
+          displayName: (data.displayName as string) ?? undefined,
+          photoURL: (data.photoURL as string) ?? undefined,
+          createdAt: data.createdAt instanceof Date ? data.createdAt : (data.createdAt as { toDate: () => Date })?.toDate?.() ?? new Date(),
+          updatedAt: data.updatedAt instanceof Date ? data.updatedAt : (data.updatedAt as { toDate: () => Date })?.toDate?.() ?? new Date(),
+        } as User);
       } else {
-        // Create new user document
+        const now = new Date();
         const newUser: User = {
-          uid: firebaseUser.uid,
+          id: firebaseUser.uid,
           email: firebaseUser.email || '',
           displayName: firebaseUser.displayName || 'Anonymous',
-          photoURL: firebaseUser.photoURL || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          photoURL: firebaseUser.photoURL ?? undefined,
+          createdAt: now,
+          updatedAt: now,
         };
 
         await setDoc(userRef, {
-          ...newUser,
+          uid: firebaseUser.uid,
+          email: newUser.email,
+          displayName: newUser.displayName,
+          photoURL: newUser.photoURL ?? null,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -62,56 +71,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Listen to auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUser(firebaseUser);
-      
-      if (firebaseUser) {
-        await syncUserData(firebaseUser);
-      } else {
-        setUser(null);
-      }
-      
+      if (firebaseUser) await syncUserData(firebaseUser);
+      else setUser(null);
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  // Sign in with Google
   const signInWithGoogle = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      // User will be synced automatically by onAuthStateChanged
+      await signInWithPopup(auth, new GoogleAuthProvider());
     } catch (error) {
       console.error('Error signing in with Google:', error);
       throw error;
     }
   };
 
-  // Sign in with email/password
   const signInWithEmail = async (email: string, password: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // User will be synced automatically by onAuthStateChanged
     } catch (error) {
       console.error('Error signing in with email:', error);
       throw error;
     }
   };
 
-  // Sign up with email/password
-  const signUpWithEmail = async (
-    email: string,
-    password: string,
-    displayName?: string
-  ) => {
+  const signUpWithEmail = async (email: string, password: string, displayName?: string) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Update display name if provided
       if (displayName && result.user) {
         const userRef = doc(db, 'users', result.user.uid);
         await setDoc(userRef, {
@@ -129,7 +119,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Sign out
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
@@ -141,24 +130,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const value = {
-    user,
-    firebaseUser,
-    loading,
-    signInWithGoogle,
-    signInWithEmail,
-    signUpWithEmail,
-    signOut,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, firebaseUser, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
-

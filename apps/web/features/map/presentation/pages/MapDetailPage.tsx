@@ -16,6 +16,7 @@ import type { MapDocument, PinColor, CreatePinDocumentInput, PinDocument } from 
 import PinMarker from '../components/PinMarker';
 import type { BoundingBox, MapCanvasHandle } from '../components/MapCanvas';
 import type { Map as MapLibreMap } from 'maplibre-gl';
+import PinInspector from '@/features/pin/components/PinInspector';
 
 // Dynamic import to avoid SSR issues with maplibre-gl
 const MapCanvas = dynamic(() => import('../components/MapCanvas'), {
@@ -61,10 +62,19 @@ export default function MapDetailPage() {
   interface PinWithId extends PinDocument {
     id: string;
   }
+  type Pin = PinWithId;
   const [pins, setPins] = useState<PinWithId[]>([]);
+  const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   // Map reference
   const mapHandleRef = useRef<MapCanvasHandle | null>(null);
+  const previousCameraRef = useRef<{
+    center: [number, number];
+    zoom: number;
+    bearing: number;
+    pitch: number;
+  } | null>(null);
 
   // Device detection
   const isMobile = useIsMobile();
@@ -90,7 +100,64 @@ export default function MapDetailPage() {
   // Handle map ready
   const handleMapReady = useCallback((handle: MapCanvasHandle) => {
     mapHandleRef.current = handle;
+    setIsMapReady(true);
   }, []);
+
+  // Close inspector when clicking blank map area
+  useEffect(() => {
+    if (!isMapReady) return;
+    const map = mapHandleRef.current?.getMap();
+    if (!map) return;
+
+    const handleMapClick = () => {
+      setSelectedPin(null);
+    };
+
+    map.on('click', handleMapClick);
+    return () => {
+      map.off('click', handleMapClick);
+    };
+  }, [isMapReady]);
+
+  // Move camera when selecting a pin; restore when deselecting
+  useEffect(() => {
+    if (!isMapReady) return;
+    const map = mapHandleRef.current?.getMap();
+    if (!map) return;
+
+    if (selectedPin) {
+      if (!previousCameraRef.current) {
+        const center = map.getCenter();
+        previousCameraRef.current = {
+          center: [center.lng, center.lat],
+          zoom: map.getZoom(),
+          bearing: map.getBearing(),
+          pitch: map.getPitch(),
+        };
+      }
+
+      const horizontalOffset = typeof window !== 'undefined' ? -window.innerWidth / 4 : 0;
+      map.easeTo({
+        center: [selectedPin.location.lng, selectedPin.location.lat],
+        offset: [horizontalOffset, 0],
+        duration: 550,
+        essential: true,
+      });
+      return;
+    }
+
+    if (previousCameraRef.current) {
+      map.easeTo({
+        center: previousCameraRef.current.center,
+        zoom: previousCameraRef.current.zoom,
+        bearing: previousCameraRef.current.bearing,
+        pitch: previousCameraRef.current.pitch,
+        duration: 550,
+        essential: true,
+      });
+      previousCameraRef.current = null;
+    }
+  }, [selectedPin, isMapReady]);
 
   // Handle drag start from toolbar
   const handleDragStart = useCallback((event: { color: PinColor; position: { x: number; y: number } }) => {
@@ -333,6 +400,15 @@ export default function MapDetailPage() {
     return () => unsubscribe();
   }, [mapId, firebaseUser?.uid]);
 
+  // If selected pin disappears from snapshot, close inspector
+  useEffect(() => {
+    if (!selectedPin) return;
+    const stillExists = pins.some((pin) => pin.id === selectedPin.id);
+    if (!stillExists) {
+      setSelectedPin(null);
+    }
+  }, [pins, selectedPin]);
+
   return (
     <ProtectedRoute>
       <Head>
@@ -393,17 +469,23 @@ export default function MapDetailPage() {
                     latitude={pin.location.lat}
                     anchor="bottom"
                   >
-                    <PinMarker
-                      color={pin.style.color}
-                      onClick={() => {
-                        // TODO: Open pin detail modal
-                        console.log('Pin clicked:', pin.id);
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPin(pin);
                       }}
-                    />
+                    >
+                      <PinMarker
+                        color={pin.style.color}
+                        isSelected={selectedPin?.id === pin.id}
+                      />
+                    </div>
                   </Marker>
                 ))}
               </MapCanvas>
             </div>
+
+            <PinInspector pin={selectedPin} />
 
             {/* Top Left: Back Button */}
             <div className="absolute top-4 left-4 z-20">

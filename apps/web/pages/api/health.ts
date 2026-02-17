@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { auth, db, storage } from '@/lib/firebaseClient';
+import { auth, db, storage } from '@repo/firebase/client';
 
 type HealthCheck = {
   status: string;

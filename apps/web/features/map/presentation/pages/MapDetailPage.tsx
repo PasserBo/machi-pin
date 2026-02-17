@@ -3,16 +3,21 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { doc, getDoc, collection, addDoc, updateDoc, increment, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { Marker } from 'react-map-gl/maplibre';
-import { db } from '@/lib/firebaseClient';
+import {
+  fetchMap,
+  dropPinOnMap,
+  subscribeToPins,
+  type MapWithId,
+  type PinWithId,
+} from '../../repositories/mapRepository';
 import { useAuth } from '@/features/authorization/presentation/components/AuthContext';
 import ProtectedRoute from '@/features/authorization/presentation/components/ProtectedRoute';
 import PinToolbar from '../components/PinToolbar';
 import DragOverlay from '../components/DragOverlay';
 import { useIsMobile } from '../../useIsMobile';
 import { useEdgeScroll } from '../../useEdgeScroll';
-import type { MapDocument, PinColor, CreatePinDocumentInput, PinDocument } from '@repo/types';
+import type { PinColor } from '@repo/types';
 import PinMarker from '../components/PinMarker';
 import type { BoundingBox, MapCanvasHandle } from '../components/MapCanvas';
 import type { Map as MapLibreMap } from 'maplibre-gl';
@@ -31,11 +36,6 @@ const MapCanvas = dynamic(() => import('../components/MapCanvas'), {
   ),
 });
 
-// Extended MapDocument with id
-interface MapData extends MapDocument {
-  id: string;
-}
-
 // Drag state interface
 interface DragState {
   isDragging: boolean;
@@ -53,18 +53,14 @@ export default function MapDetailPage() {
   const { firebaseUser } = useAuth();
   
   // Map data state
-  const [mapData, setMapData] = useState<MapData | null>(null);
+  const [mapData, setMapData] = useState<MapWithId | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPinColor, setSelectedPinColor] = useState<PinColor | null>(null);
 
-  // Pins state (with id for rendering)
-  interface PinWithId extends PinDocument {
-    id: string;
-  }
-  type Pin = PinWithId;
+  // Pins state
   const [pins, setPins] = useState<PinWithId[]>([]);
-  const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
+  const [selectedPin, setSelectedPin] = useState<PinWithId | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
 
   // Map reference
@@ -209,52 +205,20 @@ export default function MapDetailPage() {
     // Convert screen coordinates to map coordinates (lng/lat)
     const lngLat = map.unproject([clientX, dropY]);
     
-    // Prepare pin data for Firestore
-    const pinData: CreatePinDocumentInput = {
-      mapId: mapId,
-      ownerUid: firebaseUser.uid,
-      location: {
-        lat: lngLat.lat,
-        lng: lngLat.lng,
-      },
-      style: {
-        color: dragState.color,
-        iconType: 'standard',
-      },
-    };
-
     try {
-      // Save pin to Firestore subcollection: maps/{mapId}/pins
-      const pinsCollectionRef = collection(db, 'maps', mapId, 'pins');
-      const pinDocRef = await addDoc(pinsCollectionRef, {
-        ...pinData,
-        createdAt: serverTimestamp(),
-      });
-
-      // Update map's pinCount
-      const mapDocRef = doc(db, 'maps', mapId);
-      await updateDoc(mapDocRef, {
-        pinCount: increment(1),
-        updatedAt: serverTimestamp(),
-      });
-
-      // Update local state for pinCount
-      setMapData(prev => prev ? { ...prev, pinCount: (prev.pinCount || 0) + 1 } : prev);
-
-      // Success feedback (placeholder for sound/vibration)
-      console.log('✅ Pin created successfully:', {
-        pinId: pinDocRef.id,
+      const pinId = await dropPinOnMap({
+        mapId,
+        ownerUid: firebaseUser.uid,
         location: { lat: lngLat.lat, lng: lngLat.lng },
         color: dragState.color,
       });
-      
-      // TODO: Play success sound or vibration
-      // if ('vibrate' in navigator) navigator.vibrate(50);
-      // playSound('pin-drop');
 
+      // Optimistic local update for pinCount
+      setMapData(prev => prev ? { ...prev, pinCount: (prev.pinCount || 0) + 1 } : prev);
+
+      console.log('✅ Pin created:', pinId);
     } catch (error) {
       console.error('❌ Failed to create pin:', error);
-      // TODO: Show error toast to user
     }
 
     // Reset drag state
@@ -324,42 +288,17 @@ export default function MapDetailPage() {
     };
   }, [dragState.isDragging, handleDragMove, handleDragEnd, handleDragCancel]);
 
-  // Fetch map data from Firestore
+  // Fetch map data via repository
   useEffect(() => {
-    async function fetchMap() {
-      if (!mapId || typeof mapId !== 'string') {
-        return;
-      }
-
-      if (!firebaseUser?.uid) {
-        setIsLoading(false);
-        return;
-      }
+    async function loadMap() {
+      if (!mapId || typeof mapId !== 'string') return;
+      if (!firebaseUser?.uid) { setIsLoading(false); return; }
 
       try {
-        const mapRef = doc(db, 'maps', mapId);
-        const mapSnap = await getDoc(mapRef);
-
-        if (!mapSnap.exists()) {
-          setError('地图不存在');
-          setIsLoading(false);
-          return;
-        }
-
-        const data = mapSnap.data() as MapDocument;
-
-        // Security check: Only owner can view (for now)
-        // TODO: Add public map support later
-        if (data.ownerUid !== firebaseUser.uid) {
-          setError('您没有权限查看此地图');
-          setIsLoading(false);
-          return;
-        }
-
-        setMapData({
-          id: mapSnap.id,
-          ...data,
-        });
+        const map = await fetchMap(mapId);
+        if (!map) { setError('地图不存在'); setIsLoading(false); return; }
+        if (map.ownerUid !== firebaseUser.uid) { setError('您没有权限查看此地图'); setIsLoading(false); return; }
+        setMapData(map);
       } catch (err) {
         console.error('Failed to fetch map:', err);
         setError('加载失败，请重试');
@@ -367,36 +306,22 @@ export default function MapDetailPage() {
         setIsLoading(false);
       }
     }
-
-    fetchMap();
+    loadMap();
   }, [mapId, firebaseUser?.uid]);
 
-  // Subscribe to pins collection in real-time
+  // Subscribe to pins collection in real-time via repository
   useEffect(() => {
     if (!mapId || typeof mapId !== 'string') return;
     if (!firebaseUser?.uid) return;
 
-    // Create reference to pins subcollection
-    const pinsCollectionRef = collection(db, 'maps', mapId, 'pins');
-
-    // Subscribe to real-time updates
-    const unsubscribe = onSnapshot(
-      pinsCollectionRef,
-      (snapshot) => {
-        const pinsData: PinWithId[] = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as PinWithId[];
-        
+    const unsubscribe = subscribeToPins(
+      mapId,
+      (pinsData) => {
         setPins(pinsData);
         console.log(`📍 Loaded ${pinsData.length} pins`);
       },
-      (err) => {
-        console.error('Failed to subscribe to pins:', err);
-      }
+      (err) => console.error('Failed to subscribe to pins:', err),
     );
-
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [mapId, firebaseUser?.uid]);
 

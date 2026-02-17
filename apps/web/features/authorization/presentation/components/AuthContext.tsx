@@ -8,8 +8,8 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebaseClient';
+import { auth } from '@repo/firebase/client';
+import { syncUser, registerUser } from '../../repositories/userRepository';
 import type { User } from '@repo/types';
 
 interface AuthContextType {
@@ -29,43 +29,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const syncUserData = async (firebaseUser: FirebaseUser) => {
+  const syncUserData = async (fbUser: FirebaseUser) => {
     try {
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const data = userSnap.data() as Record<string, unknown>;
-        setUser({
-          id: (data.uid as string) || (data.id as string),
-          email: (data.email as string) ?? '',
-          displayName: (data.displayName as string) ?? undefined,
-          photoURL: (data.photoURL as string) ?? undefined,
-          createdAt: data.createdAt instanceof Date ? data.createdAt : (data.createdAt as { toDate: () => Date })?.toDate?.() ?? new Date(),
-          updatedAt: data.updatedAt instanceof Date ? data.updatedAt : (data.updatedAt as { toDate: () => Date })?.toDate?.() ?? new Date(),
-        } as User);
-      } else {
-        const now = new Date();
-        const newUser: User = {
-          id: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName: firebaseUser.displayName || 'Anonymous',
-          photoURL: firebaseUser.photoURL ?? undefined,
-          createdAt: now,
-          updatedAt: now,
-        };
-
-        await setDoc(userRef, {
-          uid: firebaseUser.uid,
-          email: newUser.email,
-          displayName: newUser.displayName,
-          photoURL: newUser.photoURL ?? null,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        setUser(newUser);
-      }
+      const user = await syncUser(fbUser);
+      setUser(user);
     } catch (error) {
       console.error('Error syncing user data:', error);
     }
@@ -102,15 +69,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUpWithEmail = async (email: string, password: string, displayName?: string) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
-      if (displayName && result.user) {
-        const userRef = doc(db, 'users', result.user.uid);
-        await setDoc(userRef, {
-          uid: result.user.uid,
-          email: result.user.email,
+      if (result.user) {
+        await registerUser(result.user.uid, {
+          email: result.user.email || email,
           displayName,
-          photoURL: null,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         });
       }
     } catch (error) {

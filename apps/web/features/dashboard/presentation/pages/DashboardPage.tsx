@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebaseClient';
+import { fetchUserMaps } from '../../repositories/dashboardRepository';
 import { useAuth } from '@/features/authorization/presentation/components/AuthContext';
 import ProtectedRoute from '@/features/authorization/presentation/components/ProtectedRoute';
 import MapCard, { type MapListItem } from '../components/MapCard';
@@ -17,14 +16,8 @@ export default function DashboardPage() {
     async function fetchMaps() {
       if (!firebaseUser?.uid) { setIsLoading(false); return; }
       try {
-        const mapsRef = collection(db, 'maps');
-        const q = query(mapsRef, where('ownerUid', '==', firebaseUser.uid), orderBy('createdAt', 'desc'));
-        const querySnapshot = await getDocs(q);
-        const mapsList: MapListItem[] = [];
-        querySnapshot.forEach((doc) => {
-          mapsList.push({ id: doc.id, ...doc.data() } as MapListItem);
-        });
-        setMaps(mapsList);
+        const mapsList = await fetchUserMaps(firebaseUser.uid);
+        setMaps(mapsList as MapListItem[]);
       } catch (err) {
         console.error('Failed to fetch maps:', err);
         setError('地图加载失败，请刷新重试');

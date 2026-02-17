@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Timestamp } from 'firebase/firestore';
 import type { MapDocument } from '@repo/types';
 
 export interface MapListItem extends MapDocument {
@@ -52,9 +51,11 @@ export default function MapCard({ map }: MapCardProps) {
 function formatDate(timestamp: unknown): string {
   if (!timestamp) return 'Unknown date';
   try {
-    if (timestamp instanceof Timestamp) return timestamp.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-    if (timestamp instanceof Date) return timestamp.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-    if (typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp) return (timestamp as { toDate: () => Date }).toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
+    const opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+    if (timestamp instanceof Date) return timestamp.toLocaleDateString('ja-JP', opts);
+    if (typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp) {
+      return (timestamp as { toDate: () => Date }).toDate().toLocaleDateString('ja-JP', opts);
+    }
     return 'Unknown date';
   } catch {
     return 'Unknown date';

@@ -20,6 +20,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@repo/firebase':
+        specifier: workspace:*
+        version: link:../../packages/firebase
       '@repo/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -123,6 +126,25 @@ importers:
       typescript-eslint:
         specifier: ^8.46.3
         version: 8.46.3(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.2)
+
+  packages/firebase:
+    dependencies:
+      '@repo/types':
+        specifier: workspace:*
+        version: link:../types
+      firebase:
+        specifier: ^11.0.2
+        version: 11.10.0
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
 
   packages/types:
     devDependencies:
@@ -3590,6 +3612,9 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
+
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
 
@@ -7664,3 +7689,5 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@0.1.0: {}
+
+  zod@3.25.76: {}

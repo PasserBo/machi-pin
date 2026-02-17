@@ -2,13 +2,11 @@ import { useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebaseClient';
+import { createMap } from '../../repositories/mapRepository';
 import { useAuth } from '@/features/authorization/presentation/components/AuthContext';
 import MapNameModal from '../components/MapNameModal';
 import type { MapCanvasHandle, MapStyleKey } from '../components/MapCanvas';
 import { MAP_STYLES } from '../components/MapCanvas';
-import type { MapDocument } from '@repo/types';
 
 // Viewfinder element ID for getting bounding rect
 const VIEWFINDER_ID = 'map-viewfinder-frame';
@@ -147,26 +145,18 @@ export default function NewMapPage() {
     try {
       const { boundingBox, center } = viewfinderData;
 
-      // Prepare the document data
-      const mapData: Omit<MapDocument, 'id'> = {
+      const mapId = await createMap({
         name: mapName,
         ownerUid: firebaseUser?.uid || '',
         styleKey: selectedStyle,
         styleUrl: MAP_STYLES[selectedStyle],
         boundingBox,
         center,
-        zoom, // Store current zoom as reference
-        pinCount: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
+        zoom,
+      });
 
-      // Write to Firestore
-      const docRef = await addDoc(collection(db, 'maps'), mapData);
-
-      // Success! Close modal and redirect
       setIsModalOpen(false);
-      router.push(`/map/${docRef.id}`);
+      router.push(`/map/${mapId}`);
     } catch (err) {
       console.error('Failed to save map:', err);
       setError('保存失败，请重试。' + (err instanceof Error ? ` (${err.message})` : ''));

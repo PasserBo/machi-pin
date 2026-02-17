@@ -1,0 +1,67 @@
+---
+description: Data layer and Firebase architecture — presentation must not call Firestore directly; only feature repositories call @repo/firebase.
+globs:
+  - "apps/web/features/**/*"
+  - "packages/firebase/**/*"
+alwaysApply: false
+---
+
+# Data Layer & Firebase Architecture
+
+This project uses a **three-layer** separation for all Firebase/Firestore usage. Edits must preserve this structure.
+
+## Layer Diagram
+
+```
+Presentation (pages, components)
+    → only imports from feature's own repositories/
+Feature Repositories (feature/repositories/)
+    → only imports from @repo/firebase (repositories, client)
+@repo/firebase (packages/firebase)
+    → Firestore CRUD, converters, schema; no app-specific logic
+```
+
+## 1. Infrastructure: `packages/firebase` (@repo/firebase)
+
+- **Purpose**: Generic Firestore access — init, converters, base CRUD, Zod schemas.
+- **Consumers**: Only **feature repositories** in `apps/web/features/*/repositories/`.
+- **Do**:
+  - Keep `client.ts` (auth, db, storage), `admin.ts`, `schema/`, `converters/`, `repositories/` (base CRUD).
+  - Export types like `MapWithId`, `PinWithId` from repositories.
+- **Do not**:
+  - Put UI-specific aggregation (e.g. “drop pin and bump map count”) here; that belongs in feature repositories.
+  - Let `apps/web` presentation (pages/components) import from `@repo/firebase/repositories` or use raw Firestore APIs.
+
+## 2. Data Layer: Feature Repositories (`apps/web/features/<feature>/repositories/`)
+
+- **Purpose**: Single source of truth for feature data. Call `@repo/firebase`, aggregate and shape data for the UI.
+- **Consumers**: Only that feature’s **presentation** (pages, components under `features/<feature>/presentation/` or `features/<feature>/components/`).
+- **Do**:
+  - Import only from `@repo/firebase/client` or `@repo/firebase/repositories` (and `@repo/types` if needed).
+  - Expose high-level operations (e.g. `fetchMap`, `dropPinOnMap`, `subscribeToPins`, `syncUser`, `fetchUserMaps`) that combine or wrap base Firestore calls.
+  - Re-export types (e.g. `MapWithId`, `PinWithId`) so presentation does not need `@repo/firebase`.
+- **Do not**:
+  - Import from another feature’s repository (cross-feature data should go through a shared repo or stay in firebase package).
+  - Put UI state, routing, or React hooks inside repository files; keep them pure data functions.
+
+## 3. Presentation Layer (`features/<feature>/presentation/`, `features/<feature>/components/`)
+
+- **Purpose**: UI only. Fetches and mutates data via the feature’s repository.
+- **Do**:
+  - Import data functions and types only from the **same feature’s** `repositories/` (e.g. `../../repositories/mapRepository`).
+  - Use `@repo/firebase/client` only when the feature genuinely needs the Firebase **client instance** (e.g. `auth` for `onAuthStateChanged`, `signInWithPopup`) — not for Firestore reads/writes.
+- **Do not**:
+  - Import from `@repo/firebase/repositories` or use `doc`, `getDoc`, `addDoc`, `onSnapshot`, etc. in pages or components.
+  - Put Firestore collection paths, `serverTimestamp()`, or converter logic in presentation; that stays in `@repo/firebase` or feature repository.
+
+## File Layout Reference
+
+- `packages/firebase/src/`: `client.ts`, `admin.ts`, `schema/`, `converters/`, `repositories/` (base), `index.ts`
+- `apps/web/features/<feature>/repositories/`: one or more `*Repository.ts` files that call `@repo/firebase` and export feature-level APIs.
+- `apps/web/features/<feature>/presentation/`: pages and components that call only that feature’s repositories.
+
+## Quick Checklist for New/Changed Code
+
+- Adding a new Firestore read/write → implement in `@repo/firebase` if generic, or in **feature repository** if it’s UI-shaped; then call from presentation.
+- Adding a new feature → add `features/<name>/repositories/` and have presentation import only from there.
+- Moving logic from a page into “data layer” → move the Firestore calls into the feature’s `repositories/` and replace page code with a call to the new repository function.

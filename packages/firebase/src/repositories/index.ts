@@ -14,6 +14,13 @@ export {
 
 export {
   createPin,
+  attachPolaroidToPin,
   subscribePins,
   type PinWithId,
 } from './pinRepository';
+
+export {
+  uploadPolaroidPhoto,
+  createPolaroid,
+  type CreatePolaroidData,
+} from './polaroidRepository';

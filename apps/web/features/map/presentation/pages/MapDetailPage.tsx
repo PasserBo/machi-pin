@@ -410,7 +410,12 @@ export default function MapDetailPage() {
               </MapCanvas>
             </div>
 
-            <PinInspector pin={selectedPin} />
+            <PinInspector
+              pin={selectedPin}
+              mapId={mapId as string}
+              userId={firebaseUser?.uid ?? ''}
+              onSaveSuccess={() => setSelectedPin(null)}
+            />
 
             {/* Top Left: Back Button */}
             <div className="absolute top-4 left-4 z-20">

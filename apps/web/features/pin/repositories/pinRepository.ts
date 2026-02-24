@@ -1,16 +1,58 @@
-import type { PinWithId } from '@repo/firebase/repositories';
+import {
+  uploadPolaroidPhoto,
+  createPolaroid,
+  attachPolaroidToPin,
+} from '@repo/firebase/repositories';
+
+// ── Types ───────────────────────────────────────────────────
+
+export interface CreatePolaroidParams {
+  mapId: string;
+  pinId: string;
+  userId: string;
+  file?: File;
+  memo?: string;
+  exifLocation?: { lat: number; lng: number };
+}
+
+// ── Core Business Operation ─────────────────────────────────
 
 /**
- * Pin feature repository.
+ * Create a Polaroid and attach it to a Pin.
  *
- * Currently a placeholder — pin detail / edit / delete operations
- * will be added here as the PinInspector feature grows.
+ * Orchestration flow:
+ *   1. Upload photo to Storage (if provided)
+ *   2. Create Polaroid document in `maps/{mapId}/polaroids`
+ *   3. Append the new Polaroid ID to the Pin's `attachedPolaroidIds`
+ *
+ * This is the **only** entry point for saving a Polaroid from the UI.
  */
+export async function createPolaroidForPin(params: CreatePolaroidParams): Promise<string> {
+  const { mapId, pinId, userId, file, memo, exifLocation } = params;
 
-// Future:
-// export async function fetchPin(mapId: string, pinId: string): Promise<PinWithId | null> { ... }
-// export async function updatePinText(mapId: string, pinId: string, text: string): Promise<void> { ... }
-// export async function uploadPinPhoto(mapId: string, pinId: string, file: File): Promise<string> { ... }
-// export async function deletePin(mapId: string, pinId: string): Promise<void> { ... }
+  let photoUrl: string | undefined;
+  let storagePath: string | undefined;
 
-export type { PinWithId };
+  // 1. Upload photo if provided
+  if (file) {
+    const result = await uploadPolaroidPhoto(userId, mapId, file);
+    photoUrl = result.url;
+    storagePath = result.path;
+  }
+
+  // 2. Create Polaroid document
+  const polaroidId = await createPolaroid({
+    mapId,
+    ownerUid: userId,
+    type: 'default',
+    photoUrl,
+    storagePath,
+    memo: memo || undefined,
+    exifLocation,
+  });
+
+  // 3. Link Polaroid to Pin
+  await attachPolaroidToPin(mapId, pinId, polaroidId);
+
+  return polaroidId;
+}

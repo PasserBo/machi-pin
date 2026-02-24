@@ -172,13 +172,20 @@ export interface PinDocument {
     color: PinColor;              // Pin color (red, blue, yellow)
     iconType: PinIconType;        // Icon type (currently only 'standard')
   };
+
+  // Polaroid references (stacking order: last = top)
+  attachedPolaroidIds?: string[];
   
   // Metadata
   createdAt: unknown;             // Firestore Timestamp
+  updatedAt?: unknown;            // Firestore Timestamp
 }
 
 /**
  * Create PinDocument input (for form submission)
  */
 export type CreatePinDocumentInput = Omit<PinDocument, 'id' | 'createdAt'>;
+
+// ── Domain models (Pin with Polaroid support) ───────────────
+export type { Pin as DomainPin, Polaroid } from './domain/map';
 

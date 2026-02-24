@@ -23,9 +23,16 @@ export {
 
 export {
   createPin,
+  attachPolaroidToPin,
   subscribePins,
   type PinWithId,
 } from './repositories/pinRepository';
+
+export {
+  uploadPolaroidPhoto,
+  createPolaroid,
+  type CreatePolaroidData,
+} from './repositories/polaroidRepository';
 
 // ── Schemas (Zod) ───────────────────────────────────────────
 export {

@@ -1,14 +1,17 @@
 import {
+  doc,
   addDoc,
+  updateDoc,
+  arrayUnion,
   collection,
   serverTimestamp,
   onSnapshot,
   type Unsubscribe,
 } from 'firebase/firestore';
 import type { PinDocument } from '@repo/types';
-import { db } from '../client';
-import { pinConverter } from '../converters/pinConverter';
-import type { CreatePinInput } from '../schema/pin';
+import { db } from '../client.js';
+import { pinConverter } from '../converters/pinConverter.js';
+import type { CreatePinInput } from '../schema/pin.js';
 
 /** Hydrated PinDocument with guaranteed `id` */
 export type PinWithId = PinDocument & { id: string };
@@ -39,6 +42,21 @@ export async function createPin(input: CreatePinInput): Promise<string> {
  * @param onError Called on subscription errors
  * @returns An `Unsubscribe` function to tear down the listener
  */
+/**
+ * Append a Polaroid ID to a pin's `attachedPolaroidIds` array.
+ */
+export async function attachPolaroidToPin(
+  mapId: string,
+  pinId: string,
+  polaroidId: string,
+): Promise<void> {
+  const pinRef = doc(db, 'maps', mapId, 'pins', pinId);
+  await updateDoc(pinRef, {
+    attachedPolaroidIds: arrayUnion(polaroidId),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export function subscribePins(
   mapId: string,
   onData: (pins: PinWithId[]) => void,

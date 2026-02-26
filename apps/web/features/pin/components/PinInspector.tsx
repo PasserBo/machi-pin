@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { PinDocument, Polaroid } from '@repo/types';
-import { createPolaroidForPin, getPolaroid } from '../repositories/pinRepository';
+import { createPolaroidForPin, deletePolaroid, getPolaroid } from '../repositories/pinRepository';
 import PolaroidViewer from './PolaroidViewer';
 import PolaroidCreator from './PolaroidCreator';
 
@@ -16,6 +16,7 @@ interface PinInspectorProps {
 
 export default function PinInspector({ pin, mapId, userId }: PinInspectorProps) {
   const [activePolaroid, setActivePolaroid] = useState<Polaroid | null>(null);
+  const [attachedPolaroidIds, setAttachedPolaroidIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -26,12 +27,14 @@ export default function PinInspector({ pin, mapId, userId }: PinInspectorProps) 
 
     async function hydrateLatestPolaroid() {
       if (!pin) {
+        setAttachedPolaroidIds([]);
         setActivePolaroid(null);
         setIsLoading(false);
         return;
       }
 
       const ids = pin.attachedPolaroidIds ?? [];
+      setAttachedPolaroidIds(ids);
       if (ids.length === 0) {
         setActivePolaroid(null);
         setIsLoading(false);
@@ -96,6 +99,10 @@ export default function PinInspector({ pin, mapId, userId }: PinInspectorProps) 
           setToast({ message: 'Saved, but failed to hydrate card', type: 'error' });
           return;
         }
+        setAttachedPolaroidIds((prev) => {
+          if (prev.includes(newPolaroidId)) return prev;
+          return [...prev, newPolaroidId];
+        });
         setActivePolaroid(latest);
         setToast({ message: 'Polaroid pinned!', type: 'success' });
       } catch (error) {
@@ -105,6 +112,37 @@ export default function PinInspector({ pin, mapId, userId }: PinInspectorProps) 
     },
     [pin, userId, mapId],
   );
+
+  const handleDelete = useCallback(async () => {
+    if (!pin || !activePolaroid) return;
+
+    setIsLoading(true);
+    try {
+      await deletePolaroid(pin.mapId, pin.id, activePolaroid.id, activePolaroid.storagePath);
+
+      const newIds = attachedPolaroidIds.filter((id) => id !== activePolaroid.id);
+      setAttachedPolaroidIds(newIds);
+
+      if (newIds.length === 0) {
+        setActivePolaroid(null);
+      } else {
+        const latestId = newIds[newIds.length - 1];
+        if (!latestId) {
+          setActivePolaroid(null);
+        } else {
+          const latest = await getPolaroid(pin.mapId, latestId);
+          setActivePolaroid(latest);
+        }
+      }
+
+      setToast({ message: 'Polaroid deleted', type: 'success' });
+    } catch (error) {
+      console.error('Failed to delete polaroid:', error);
+      setToast({ message: 'Failed to delete polaroid', type: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pin, activePolaroid, attachedPolaroidIds]);
 
   const isOpen = Boolean(pin);
 
@@ -127,7 +165,7 @@ export default function PinInspector({ pin, mapId, userId }: PinInspectorProps) 
                 </div>
               </div>
             ) : activePolaroid ? (
-              <PolaroidViewer polaroid={activePolaroid} />
+              <PolaroidViewer polaroid={activePolaroid} onDelete={handleDelete} />
             ) : (
               <PolaroidCreator onSave={handleSave} />
             )}

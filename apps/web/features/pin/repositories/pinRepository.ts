@@ -4,6 +4,9 @@ import {
   attachPolaroidToPin,
   getPolaroid as getPolaroidById,
 } from '@repo/firebase/repositories';
+import { db, storage } from '@repo/firebase/client';
+import { deleteDoc, updateDoc, arrayRemove, doc } from 'firebase/firestore';
+import { deleteObject, ref } from 'firebase/storage';
 import type { Polaroid } from '@repo/types';
 
 // ── Types ───────────────────────────────────────────────────
@@ -61,4 +64,39 @@ export async function createPolaroidForPin(params: CreatePolaroidParams): Promis
 
 export async function getPolaroid(mapId: string, polaroidId: string): Promise<Polaroid | null> {
   return getPolaroidById(mapId, polaroidId);
+}
+
+export async function deletePolaroid(
+  mapId: string,
+  pinId: string,
+  polaroidId: string,
+  storagePath?: string,
+): Promise<void> {
+  try {
+    // (A) Delete photo object first (if any)
+    if (storagePath) {
+      try {
+        const storageRef = ref(storage, storagePath);
+        await deleteObject(storageRef);
+      } catch (error) {
+        const code = (error as { code?: string })?.code;
+        if (code !== 'storage/object-not-found') {
+          throw error;
+        }
+      }
+    }
+
+    // (B) Unlink from Pin
+    const pinRef = doc(db, 'maps', mapId, 'pins', pinId);
+    await updateDoc(pinRef, {
+      attachedPolaroidIds: arrayRemove(polaroidId),
+    });
+
+    // (C) Delete Polaroid document
+    const polaroidRef = doc(db, 'maps', mapId, 'polaroids', polaroidId);
+    await deleteDoc(polaroidRef);
+  } catch (error) {
+    console.error('Failed to delete polaroid:', error);
+    throw error;
+  }
 }

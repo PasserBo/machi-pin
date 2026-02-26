@@ -3,10 +3,18 @@ import type { Polaroid } from '@repo/types';
 
 interface PolaroidViewerProps {
   polaroid: Polaroid;
+  onDelete?: () => void;
 }
 
-export default function PolaroidViewer({ polaroid }: PolaroidViewerProps) {
+export default function PolaroidViewer({ polaroid, onDelete }: PolaroidViewerProps) {
   const [activeSide, setActiveSide] = useState<'photo' | 'text'>('photo');
+
+  const handleDeleteClick = () => {
+    if (!onDelete) return;
+    const confirmed = window.confirm('Are you sure you want to delete this memory?');
+    if (!confirmed) return;
+    onDelete();
+  };
 
   return (
     <div className="relative pointer-events-auto w-[300px] sm:w-[340px]">
@@ -53,6 +61,19 @@ export default function PolaroidViewer({ polaroid }: PolaroidViewerProps) {
               <div className="flex-1 w-full min-h-0 text-stone-700 text-sm leading-7 whitespace-pre-wrap break-words">
                 {polaroid.memo?.trim() ? polaroid.memo : 'No memo'}
               </div>
+              {onDelete && (
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleDeleteClick}
+                    className="h-9 w-9 rounded-full bg-white/80 text-stone-500 shadow hover:text-red-500 hover:bg-white transition"
+                    aria-label="Delete polaroid"
+                    title="Delete memory"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

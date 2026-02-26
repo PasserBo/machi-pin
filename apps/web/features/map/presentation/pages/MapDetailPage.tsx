@@ -414,7 +414,6 @@ export default function MapDetailPage() {
               pin={selectedPin}
               mapId={mapId as string}
               userId={firebaseUser?.uid ?? ''}
-              onSaveSuccess={() => setSelectedPin(null)}
             />
 
             {/* Top Left: Back Button */}

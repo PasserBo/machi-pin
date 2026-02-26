@@ -22,5 +22,7 @@ export {
 export {
   uploadPolaroidPhoto,
   createPolaroid,
+  getPolaroid,
+  getPolaroidsByIds,
   type CreatePolaroidData,
 } from './polaroidRepository';

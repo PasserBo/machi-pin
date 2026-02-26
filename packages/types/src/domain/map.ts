@@ -7,6 +7,11 @@
  * plain types is handled by converters in @repo/firebase.
  */
 
+// 定义一个通用的地理位置接口，不依赖 Firebase
+export interface ILocation {
+    lat: number;
+    lng: number;
+  }
 // ── Pin (地图上的物理图钉 — 锚点) ──────────────────────────
 
 export interface Pin {
@@ -15,7 +20,7 @@ export interface Pin {
   ownerUid: string;
 
   /** 图钉在地图上的位置 (plain lat/lng, NOT GeoPoint) */
-  location: { lat: number; lng: number };
+  location: ILocation;
 
   /** 挂载的拍立得卡片 ID 列表 (数组顺序 = 堆叠顺序, 最后 = 最上面) */
   attachedPolaroidIds: string[];
@@ -25,8 +30,8 @@ export interface Pin {
     iconType: string;
   };
 
-  createdAt: unknown; // Firestore Timestamp — kept opaque in domain layer
-  updatedAt: unknown;
+  createdAt: number; // Firestore Timestamp — kept opaque in domain layer
+  updatedAt: number;
 }
 
 // ── Polaroid (内容卡片 — 拍立得) ────────────────────────────
@@ -47,7 +52,7 @@ export interface Polaroid {
   memo?: string;
 
   /** 如果照片有 Exif, 记录拍摄时的真实位置 (可能与 Pin 不同) */
-  exifLocation?: { lat: number; lng: number };
+  exifLocation?: ILocation;
 
   createdAt: unknown; // Firestore Timestamp
 }

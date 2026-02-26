@@ -2,7 +2,9 @@ import {
   uploadPolaroidPhoto,
   createPolaroid,
   attachPolaroidToPin,
+  getPolaroid as getPolaroidById,
 } from '@repo/firebase/repositories';
+import type { Polaroid } from '@repo/types';
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -55,4 +57,8 @@ export async function createPolaroidForPin(params: CreatePolaroidParams): Promis
   await attachPolaroidToPin(mapId, pinId, polaroidId);
 
   return polaroidId;
+}
+
+export async function getPolaroid(mapId: string, polaroidId: string): Promise<Polaroid | null> {
+  return getPolaroidById(mapId, polaroidId);
 }

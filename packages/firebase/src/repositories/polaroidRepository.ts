@@ -124,8 +124,8 @@ export async function getPolaroidsByIds(mapId: string, polaroidIds: string[]): P
     });
   } else {
     // 如果产品允许一个 Pin 挂超过 10 张（极端情况），则降级使用 Promise.all 并发单体读取
-    const promises = polaroidIds.map(id => getPolaroid(mapId, id));
-    const results = await Promise.all(promises);
-    return results.filter((p): p is Polaroid => p !== null);
+    const promises = polaroidIds.map((id) => getPolaroid(mapId, id));
+    const results: Array<Polaroid | null> = await Promise.all(promises);
+    return results.filter((p: Polaroid | null): p is Polaroid => p !== null);
   }
 }

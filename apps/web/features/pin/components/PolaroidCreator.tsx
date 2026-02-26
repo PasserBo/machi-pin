@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import imageCompression from 'browser-image-compression';
 
 interface PolaroidCreatorProps {
   onSave: (file: File | null, memo: string) => Promise<void>;
@@ -10,6 +11,7 @@ export default function PolaroidCreator({ onSave }: PolaroidCreatorProps) {
   const [tempPhoto, setTempPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -21,16 +23,35 @@ export default function PolaroidCreator({ onSave }: PolaroidCreatorProps) {
   }, [photoPreview]);
 
   const handlePhotoSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      if (photoPreview) {
-        URL.revokeObjectURL(photoPreview);
-      }
+      setIsCompressing(true);
+      try {
+        const compressedFile = await imageCompression(file, {
+          maxSizeMB: 0.7,
+          maxWidthOrHeight: 2048,
+          useWebWorker: true,
+        });
 
-      setTempPhoto(file);
-      setPhotoPreview(URL.createObjectURL(file));
+        if (photoPreview) {
+          URL.revokeObjectURL(photoPreview);
+        }
+
+        setTempPhoto(compressedFile);
+        setPhotoPreview(URL.createObjectURL(compressedFile));
+      } catch (error) {
+        // Fallback to the original file so upload flow is not blocked by compression failure.
+        console.error('Image compression failed, falling back to original file:', error);
+        if (photoPreview) {
+          URL.revokeObjectURL(photoPreview);
+        }
+        setTempPhoto(file);
+        setPhotoPreview(URL.createObjectURL(file));
+      } finally {
+        setIsCompressing(false);
+      }
     },
     [photoPreview],
   );
@@ -40,14 +61,14 @@ export default function PolaroidCreator({ onSave }: PolaroidCreatorProps) {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (isSaving) return;
+    if (isSaving || isCompressing) return;
     setIsSaving(true);
     try {
       await onSave(tempPhoto, memo);
     } finally {
       setIsSaving(false);
     }
-  }, [isSaving, memo, onSave, tempPhoto]);
+  }, [isCompressing, isSaving, memo, onSave, tempPhoto]);
 
   return (
     <div className="relative pointer-events-auto w-[300px] sm:w-[340px]">
@@ -57,23 +78,23 @@ export default function PolaroidCreator({ onSave }: PolaroidCreatorProps) {
         accept="image/*"
         className="hidden"
         onChange={handlePhotoSelect}
-        disabled={isSaving}
+        disabled={isSaving || isCompressing}
       />
 
       <button
         type="button"
         onClick={handleSave}
-        disabled={isSaving}
+        disabled={isSaving || isCompressing}
         className={`absolute left-1/2 -top-6 -translate-x-1/2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg transition z-10 ${
-          isSaving
+          isSaving || isCompressing
             ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
             : 'bg-black text-white hover:bg-gray-800'
         }`}
       >
-        {isSaving ? (
+        {isSaving || isCompressing ? (
           <span className="flex items-center gap-2">
             <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-r-transparent" />
-            Saving...
+            {isCompressing ? 'Compressing...' : 'Saving...'}
           </span>
         ) : (
           '📌 Save'
@@ -96,7 +117,7 @@ export default function PolaroidCreator({ onSave }: PolaroidCreatorProps) {
                 <button
                   type="button"
                   onClick={handleUploadClick}
-                  disabled={isSaving}
+                  disabled={isSaving || isCompressing}
                   className="w-full h-full relative group"
                 >
                   <img
@@ -104,7 +125,7 @@ export default function PolaroidCreator({ onSave }: PolaroidCreatorProps) {
                     alt="Polaroid preview"
                     className="w-full h-full object-cover rounded-2xl"
                   />
-                  {!isSaving && (
+                  {!isSaving && !isCompressing && (
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors rounded-2xl flex items-center justify-center">
                       <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium">
                         Change photo
@@ -117,11 +138,15 @@ export default function PolaroidCreator({ onSave }: PolaroidCreatorProps) {
                   type="button"
                   className="w-full h-full flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-amber-700/40 bg-amber-50/80 hover:bg-amber-100/80 hover:border-amber-700/60 transition-colors text-amber-900/90 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleUploadClick}
-                  disabled={isSaving}
+                  disabled={isSaving || isCompressing}
                 >
                   <span className="text-4xl opacity-80">📷</span>
-                  <span className="font-medium text-sm tracking-wide">点击上传</span>
-                  <span className="text-xs opacity-70">Click to upload</span>
+                  <span className="font-medium text-sm tracking-wide">
+                    {isCompressing ? '压缩中…' : '点击上传'}
+                  </span>
+                  <span className="text-xs opacity-70">
+                    {isCompressing ? 'Compressing...' : 'Click to upload'}
+                  </span>
                 </button>
               )}
             </div>
@@ -157,7 +182,7 @@ export default function PolaroidCreator({ onSave }: PolaroidCreatorProps) {
         <button
           type="button"
           onClick={() => setActiveSide('photo')}
-          disabled={isSaving}
+          disabled={isSaving || isCompressing}
           className={`h-11 w-11 rounded-full shadow-lg transition ${
             activeSide === 'photo'
               ? 'bg-black text-white shadow-xl ring-2 ring-offset-2 ring-stone-400'
@@ -170,7 +195,7 @@ export default function PolaroidCreator({ onSave }: PolaroidCreatorProps) {
         <button
           type="button"
           onClick={() => setActiveSide('text')}
-          disabled={isSaving}
+          disabled={isSaving || isCompressing}
           className={`h-11 w-11 rounded-full shadow-lg transition text-sm font-bold ${
             activeSide === 'text'
               ? 'bg-black text-white shadow-xl ring-2 ring-offset-2 ring-stone-400'

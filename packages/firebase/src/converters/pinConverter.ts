@@ -23,13 +23,19 @@ export const pinConverter: FirestoreDataConverter<PinDocument & { id: string }> 
     options?: SnapshotOptions,
   ): PinDocument & { id: string } {
     const d = snapshot.data(options);
+    const attachedPolaroidIds = Array.isArray(d.attachedPolaroidIds)
+      ? d.attachedPolaroidIds.filter((id): id is string => typeof id === 'string')
+      : [];
+
     return {
       id: snapshot.id,
       mapId: d.mapId ?? '',
       ownerUid: d.ownerUid ?? '',
       location: d.location ?? { lat: 0, lng: 0 },
       style: d.style ?? { color: 'red', iconType: 'standard' },
+      attachedPolaroidIds,
       createdAt: d.createdAt,
+      updatedAt: d.updatedAt,
     };
   },
 };

@@ -62,6 +62,7 @@ export default function MapDetailPage() {
   const [pins, setPins] = useState<PinWithId[]>([]);
   const [selectedPin, setSelectedPin] = useState<PinWithId | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [pinAnchor, setPinAnchor] = useState<{ x: number; y: number } | null>(null);
 
   // Map reference
   const mapHandleRef = useRef<MapCanvasHandle | null>(null);
@@ -153,6 +154,33 @@ export default function MapDetailPage() {
       });
       previousCameraRef.current = null;
     }
+  }, [selectedPin, isMapReady]);
+
+  // Keep pin anchor in sync with map movement
+  useEffect(() => {
+    if (!isMapReady || !selectedPin) {
+      setPinAnchor(null);
+      return;
+    }
+    const map = mapHandleRef.current?.getMap();
+    if (!map) return;
+
+    const updateAnchor = () => {
+      const point = map.project([selectedPin.location.lng, selectedPin.location.lat]);
+      setPinAnchor({ x: point.x, y: point.y });
+    };
+
+    updateAnchor();
+
+    map.on('move', updateAnchor);
+    map.on('zoom', updateAnchor);
+    map.on('resize', updateAnchor);
+
+    return () => {
+      map.off('move', updateAnchor);
+      map.off('zoom', updateAnchor);
+      map.off('resize', updateAnchor);
+    };
   }, [selectedPin, isMapReady]);
 
   // Handle drag start from toolbar
@@ -414,6 +442,7 @@ export default function MapDetailPage() {
               pin={selectedPin}
               mapId={mapId as string}
               userId={firebaseUser?.uid ?? ''}
+              pinAnchor={pinAnchor}
             />
 
             {/* Top Left: Back Button */}

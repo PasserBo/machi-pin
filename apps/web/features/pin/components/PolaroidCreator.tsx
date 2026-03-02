@@ -14,6 +14,10 @@ export default function PolaroidCreator({
   isOpen,
   onPeekingClick,
 }: PolaroidCreatorProps) {
+  const NARROW_SCREEN_BREAKPOINT = 640;
+  const NARROW_PEEK_TRANSLATE_X = 90;
+  const DEFAULT_PEEK_TRANSLATE_X = 80;
+
   const [activeSide, setActiveSide] = useState<'photo' | 'text'>('photo');
   const [memo, setMemo] = useState('');
   const [tempPhoto, setTempPhoto] = useState<File | null>(null);
@@ -21,6 +25,7 @@ export default function PolaroidCreator({
   const [isSaving, setIsSaving] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isNarrowScreen, setIsNarrowScreen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -30,6 +35,18 @@ export default function PolaroidCreator({
       }
     };
   }, [photoPreview]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateScreenState = () => {
+      setIsNarrowScreen(window.innerWidth <= NARROW_SCREEN_BREAKPOINT);
+    };
+
+    updateScreenState();
+    window.addEventListener('resize', updateScreenState);
+    return () => window.removeEventListener('resize', updateScreenState);
+  }, [NARROW_SCREEN_BREAKPOINT]);
 
   const handlePhotoSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,8 +110,11 @@ export default function PolaroidCreator({
     wrapperClassName = '';
   } else {
     const tilt = isHovered ? -12 : -6;
+    const peekingTranslateX = isNarrowScreen
+      ? NARROW_PEEK_TRANSLATE_X
+      : DEFAULT_PEEK_TRANSLATE_X;
     wrapperStyle = {
-      transform: `translateX(80%) rotate(${tilt}deg)`,
+      transform: `translateX(${peekingTranslateX}%) rotate(${tilt}deg)`,
       opacity: 1,
       cursor: 'pointer',
     };

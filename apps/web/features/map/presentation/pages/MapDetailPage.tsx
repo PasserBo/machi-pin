@@ -46,6 +46,9 @@ interface DragState {
 // Y-offset to avoid cursor/finger obstruction
 const MOBILE_DRAG_OFFSET_Y = 60;
 const DESKTOP_DRAG_OFFSET_Y = 24;
+const NARROW_SCREEN_BREAKPOINT = 640;
+const DEFAULT_PIN_FOCUS_OFFSET_RATIO = 0.25;
+const NARROW_PIN_FOCUS_OFFSET_RATIO = 0.16;
 
 export default function MapDetailPage() {
   const router = useRouter();
@@ -133,7 +136,12 @@ export default function MapDetailPage() {
         };
       }
 
-      const horizontalOffset = typeof window !== 'undefined' ? -window.innerWidth / 4 : 0;
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+      const focusOffsetRatio =
+        viewportWidth > 0 && viewportWidth <= NARROW_SCREEN_BREAKPOINT
+          ? NARROW_PIN_FOCUS_OFFSET_RATIO
+          : DEFAULT_PIN_FOCUS_OFFSET_RATIO;
+      const horizontalOffset = -viewportWidth * focusOffsetRatio;
       map.easeTo({
         center: [selectedPin.location.lng, selectedPin.location.lat],
         offset: [horizontalOffset, 0],

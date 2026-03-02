@@ -22,13 +22,11 @@ export interface PinInspectorState {
   toast: Toast | null;
   creatorPeeking: boolean;
   creatorOpen: boolean;
-  creatorFloating: boolean;
 }
 
 export interface PinInspectorActions {
   openCreator: () => void;
   closeCreator: () => void;
-  setCreatorFloating: (floating: boolean) => void;
   savePolaroid: (file: File | null, memo: string) => Promise<void>;
   deletePolaroid: () => Promise<void>;
 }
@@ -45,7 +43,6 @@ export function usePinInspectorMachine(
 
   const [creatorPeeking, setCreatorPeeking] = useState(false);
   const [creatorOpen, setCreatorOpen] = useState(false);
-  const [creatorFloating, setCreatorFloating] = useState(false);
 
   const attachedIdsKey = pin?.attachedPolaroidIds?.join('|') ?? '';
 
@@ -59,7 +56,6 @@ export function usePinInspectorMachine(
         setIsLoading(false);
         setCreatorPeeking(false);
         setCreatorOpen(false);
-        setCreatorFloating(false);
         return;
       }
 
@@ -205,10 +201,8 @@ export function usePinInspectorMachine(
     toast,
     creatorPeeking,
     creatorOpen,
-    creatorFloating,
     openCreator,
     closeCreator,
-    setCreatorFloating,
     savePolaroid,
     deletePolaroid,
   };

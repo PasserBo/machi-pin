@@ -5,7 +5,6 @@ interface PolaroidCreatorProps {
   onSave: (file: File | null, memo: string) => Promise<void>;
   isPeeking: boolean;
   isOpen: boolean;
-  isFloating: boolean;
   onPeekingClick: () => void;
 }
 
@@ -13,7 +12,6 @@ export default function PolaroidCreator({
   onSave,
   isPeeking,
   isOpen,
-  isFloating,
   onPeekingClick,
 }: PolaroidCreatorProps) {
   const [activeSide, setActiveSide] = useState<'photo' | 'text'>('photo');
@@ -22,6 +20,7 @@ export default function PolaroidCreator({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -93,7 +92,7 @@ export default function PolaroidCreator({
     wrapperStyle = { transform: 'translateX(0) rotate(0deg)', opacity: 1 };
     wrapperClassName = '';
   } else {
-    const tilt = isFloating ? -12 : -6;
+    const tilt = isHovered ? -12 : -6;
     wrapperStyle = {
       transform: `translateX(80%) rotate(${tilt}deg)`,
       opacity: 1,
@@ -102,19 +101,26 @@ export default function PolaroidCreator({
     wrapperClassName = '';
   }
 
-  const handleWrapperClick = () => {
-    if (isPeeking && !isOpen) {
-      onPeekingClick();
-    }
-  };
+  const isPeekingOnly = isPeeking && !isOpen;
 
   return (
     <div
       className={`fixed right-4 bottom-[15%] z-40 transition-all duration-500 ease-out ${wrapperClassName}`}
       style={wrapperStyle}
-      onClick={handleWrapperClick}
+      onMouseEnter={isPeekingOnly ? () => setIsHovered(true) : undefined}
+      onMouseLeave={isPeekingOnly ? () => setIsHovered(false) : undefined}
     >
       <div className="relative pointer-events-auto w-[300px] sm:w-[340px]">
+        {isPeekingOnly && (
+          <div
+            className="absolute inset-0 z-20 cursor-pointer rounded-3xl"
+            onClick={onPeekingClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onPeekingClick(); }}
+            aria-label="Open creator"
+          />
+        )}
         <input
           ref={fileInputRef}
           type="file"

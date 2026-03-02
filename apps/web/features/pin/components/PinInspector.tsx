@@ -52,7 +52,6 @@ export default function PinInspector({ pin, mapId, userId, pinAnchor }: PinInspe
           onSave={machine.savePolaroid}
           isPeeking={machine.creatorPeeking}
           isOpen={machine.creatorOpen}
-          isFloating={machine.creatorFloating}
           onPeekingClick={machine.openCreator}
         />
       )}

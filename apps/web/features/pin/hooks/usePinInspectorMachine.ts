@@ -70,7 +70,7 @@ export function usePinInspectorMachine(
         return;
       }
 
-      setCreatorPeeking(false);
+      setCreatorPeeking(true);
       setCreatorOpen(false);
 
       setIsLoading(true);
@@ -145,7 +145,7 @@ export function usePinInspectorMachine(
         });
         setActivePolaroid(latest);
         setCreatorOpen(false);
-        setCreatorPeeking(false);
+        setCreatorPeeking(true);
         setToast({ message: 'Polaroid pinned!', type: 'success' });
       } catch (error) {
         console.error('Failed to save polaroid:', error);

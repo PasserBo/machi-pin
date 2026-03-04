@@ -45,7 +45,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-500">{user?.email}</p>
               </div>
               {user?.photoURL && <img src={user.photoURL} alt={user.displayName || 'User'} className="w-10 h-10 rounded-full ring-2 ring-amber-200" />}
-              <button onClick={handleSignOut} className="py-2 px-4 text-sm border border-gray-300 rounded-xl hover:bg-gray-50 transition font-medium">Sign Out</button>
+              <button onClick={handleSignOut} className="py-2 px-4 text-sm border border-gray-300 rounded-xl bg-white text-gray-900 hover:bg-gray-50 transition font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2">Sign Out</button>
             </div>
           </div>
         </header>
@@ -55,7 +55,7 @@ export default function DashboardPage() {
               <h2 className="text-3xl font-bold text-gray-900 mb-1">我的探索地图</h2>
               <p className="text-gray-500">My Exploration Maps</p>
             </div>
-            <Link href="/map/new" className="py-3 px-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl active:scale-[0.98] font-semibold flex items-center gap-2">
+            <Link href="/map/new" className="py-3 px-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl active:scale-[0.98] font-semibold flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2">
               <span className="text-xl">+</span> New Map
             </Link>
           </div>
@@ -70,7 +70,7 @@ export default function DashboardPage() {
           {error && !isLoading && (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
               <p className="text-red-600">{error}</p>
-              <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 transition">Refresh</button>
+              <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">Refresh</button>
             </div>
           )}
           {!isLoading && !error && maps.length > 0 && (
@@ -83,7 +83,7 @@ export default function DashboardPage() {
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 mb-6"><span className="text-4xl">🗺️</span></div>
               <h2 className="text-2xl font-bold mb-3 text-gray-900">Welcome to Machi-Pin! 🎉</h2>
               <p className="text-gray-500 mb-8 leading-relaxed">Start creating your first map to collect and organize your favorite places.<br />Each map is like a treasure chest of memories.</p>
-              <Link href="/map/new" className="inline-flex items-center gap-2 py-4 px-8 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl font-semibold text-lg"><span>✨</span> Create Your First Map</Link>
+              <Link href="/map/new" className="inline-flex items-center gap-2 py-4 px-8 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl font-semibold text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"><span>✨</span> Create Your First Map</Link>
             </div>
           )}
         </main>

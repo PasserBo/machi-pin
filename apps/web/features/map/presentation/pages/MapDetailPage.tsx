@@ -49,6 +49,8 @@ const DESKTOP_DRAG_OFFSET_Y = 24;
 const NARROW_SCREEN_BREAKPOINT = 640;
 const DEFAULT_PIN_FOCUS_OFFSET_RATIO = 0.25;
 const NARROW_PIN_FOCUS_OFFSET_RATIO = 0.16;
+const PIN_FOCUS_VERTICAL_OFFSET_RATIO = 0.38;
+const MAX_PIN_FOCUS_VERTICAL_OFFSET_PX = 296;
 
 export default function MapDetailPage() {
   const router = useRouter();
@@ -142,9 +144,14 @@ export default function MapDetailPage() {
           ? NARROW_PIN_FOCUS_OFFSET_RATIO
           : DEFAULT_PIN_FOCUS_OFFSET_RATIO;
       const horizontalOffset = -viewportWidth * focusOffsetRatio;
+      // Lift the selected pin slightly above vertical center so the viewer card sits higher.
+      const verticalOffset = -Math.min(
+        viewportWidth * PIN_FOCUS_VERTICAL_OFFSET_RATIO,
+        MAX_PIN_FOCUS_VERTICAL_OFFSET_PX,
+      );
       map.easeTo({
         center: [selectedPin.location.lng, selectedPin.location.lat],
-        offset: [horizontalOffset, 0],
+        offset: [horizontalOffset, verticalOffset],
         duration: 550,
         essential: true,
       });

@@ -60,7 +60,7 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center analog-paper py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
           <div className="bg-white p-8 rounded-2xl shadow-xl">
-            <div className="text-center mb-8">
+            <div className="text-center mb-8 text-gray-900">
               <h1 className="text-4xl font-bold mb-2">{mode === 'signin' ? 'Welcome Back' : 'Join Machi-Pin'}</h1>
               <p className="text-gray-600">Your digital scrapbook for places and memories</p>
             </div>
@@ -70,7 +70,7 @@ export default function LoginPage() {
             <button
               onClick={handleGoogleSignIn}
               disabled={isLoading}
-              className="w-full py-3 px-4 bg-black text-white rounded-lg hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-black text-white rounded-lg hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -88,23 +88,23 @@ export default function LoginPage() {
               {mode === 'signup' && (
                 <div>
                   <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input id="displayName" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent" placeholder="Your name" disabled={isLoading} />
+                  <input id="displayName" type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-black focus:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2" placeholder="Your name" disabled={isLoading} />
                 </div>
               )}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent" placeholder="you@example.com" disabled={isLoading} />
+                <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-black focus:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2" placeholder="you@example.com" disabled={isLoading} />
               </div>
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent" placeholder="••••••••" disabled={isLoading} />
+                <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-black focus:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2" placeholder="••••••••" disabled={isLoading} />
               </div>
-              <button type="submit" disabled={isLoading} className="w-full py-3 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium">
+              <button type="submit" disabled={isLoading} className="w-full py-3 px-4 border border-gray-300 rounded-lg bg-white text-gray-900 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2">
                 {mode === 'signin' ? 'Sign In' : 'Sign Up'}
               </button>
             </form>
             <div className="mt-6 text-center">
-              <button onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); }} className="text-sm text-gray-600 hover:text-gray-900" disabled={isLoading}>
+              <button onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); }} className="text-sm text-gray-600 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 rounded" disabled={isLoading}>
                 {mode === 'signin' ? <>Don&apos;t have an account? <span className="font-semibold">Sign up</span></> : <>Already have an account? <span className="font-semibold">Sign in</span></>}
               </button>
             </div>

@@ -6,12 +6,30 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./client": "./dist/client.js",
-    "./admin": "./dist/admin.js",
-    "./repositories": "./dist/repositories/index.js",
-    "./schema": "./dist/schema/index.js",
-    "./converters": "./dist/converters/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./admin": {
+      "types": "./dist/admin.d.ts",
+      "default": "./dist/admin.js"
+    },
+    "./repositories": {
+      "types": "./dist/repositories/index.d.ts",
+      "default": "./dist/repositories/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "default": "./dist/schema/index.js"
+    },
+    "./converters": {
+      "types": "./dist/converters/index.d.ts",
+      "default": "./dist/converters/index.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

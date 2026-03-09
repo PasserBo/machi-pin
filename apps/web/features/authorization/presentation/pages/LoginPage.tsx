@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useAuth } from '../components/AuthContext';
+import TopNavBar, { TOP_NAV_BAR_HEIGHT } from '@/components/TopNavBar';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,19 +47,41 @@ export default function LoginPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center analog-paper">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <>
+        <TopNavBar />
+        <div
+          className="min-h-screen flex items-center justify-center analog-paper"
+          style={{ paddingTop: TOP_NAV_BAR_HEIGHT }}
+        >
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
     <>
       <Head><title>Login - Machi-Pin</title></Head>
-      <div className="min-h-screen flex items-center justify-center analog-paper py-12 px-4 sm:px-6 lg:px-8">
+      <TopNavBar />
+      <div
+        className="min-h-screen flex flex-col analog-paper py-12 px-4 sm:px-6 lg:px-8"
+        style={{ paddingTop: TOP_NAV_BAR_HEIGHT + 32 }}
+      >
+        <div className="max-w-7xl mx-auto w-full px-4 mt-2 mb-6">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 rounded font-medium"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Home
+          </Link>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
         <div className="max-w-md w-full space-y-8">
           <div className="bg-white p-8 rounded-2xl shadow-xl">
             <div className="text-center mb-8 text-gray-900">
@@ -109,6 +133,7 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </>

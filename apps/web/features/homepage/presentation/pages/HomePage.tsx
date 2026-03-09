@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useAuth } from '@/features/authorization/presentation/components/AuthContext';
+import TopNavBar, { TOP_NAV_BAR_HEIGHT } from '@/components/TopNavBar';
 
 export default function Home() {
   const router = useRouter();
@@ -23,19 +24,12 @@ export default function Home() {
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
-        {/* Navigation */}
-        <nav className="px-6 py-4 flex justify-between items-center max-w-7xl mx-auto">
-          <div className="text-2xl font-bold text-gray-900">📍 Machi-Pin</div>
-          <Link
-            href="/login"
-            className="px-6 py-2 bg-black text-white rounded-full hover:bg-gray-800 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
-          >
-            Sign In
-          </Link>
-        </nav>
-
+        <TopNavBar />
         {/* Hero Section */}
-        <div className="max-w-7xl mx-auto px-6 py-20 sm:py-32">
+        <div
+          className="max-w-7xl mx-auto px-6 pb-20 sm:pb-32"
+          style={{ paddingTop: TOP_NAV_BAR_HEIGHT + 24 }}
+        >
           <div className="text-center">
             <h1 className="text-5xl sm:text-7xl font-bold mb-6 leading-tight text-gray-900">
               Your Digital<br />

@@ -11,8 +11,8 @@ import Map, { MapRef, ViewStateChangeEvent } from 'react-map-gl/maplibre';
 import type { LngLatBounds, LngLatBoundsLike, FitBoundsOptions } from 'maplibre-gl';
 
 // Maptiler API key
-//const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-const MAPTILER_KEY = "wer456qscv";
+const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+// const MAPTILER_KEY = "wer456qscv";
 // Force rebuild to inject new MapTiler Key - 2026-03-10
 console.log("Map initialized v2");
 

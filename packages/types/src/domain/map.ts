@@ -25,6 +25,9 @@ export interface Pin {
   /** 挂载的拍立得卡片 ID 列表 (数组顺序 = 堆叠顺序, 最后 = 最上面) */
   attachedPolaroidIds: string[];
 
+  /** 最新一张拍立得的缩略图 URL (冗余字段，避免 N+1 查询) */
+  coverPhotoUrl?: string;
+
   style: {
     color: string;
     iconType: string;

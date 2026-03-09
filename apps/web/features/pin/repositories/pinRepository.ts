@@ -3,6 +3,7 @@ import {
   createPolaroid,
   attachPolaroidToPin,
   getPolaroid as getPolaroidById,
+  getPolaroidsByIds as getPolaroidsByIdsBase,
 } from '@repo/firebase/repositories';
 import { db, storage } from '@repo/firebase/client';
 import { deleteDoc, updateDoc, arrayRemove, doc } from 'firebase/firestore';
@@ -56,14 +57,18 @@ export async function createPolaroidForPin(params: CreatePolaroidParams): Promis
     exifLocation,
   });
 
-  // 3. Link Polaroid to Pin
-  await attachPolaroidToPin(mapId, pinId, polaroidId);
+  // 3. Link Polaroid to Pin (+ denormalize cover photo for map preview)
+  await attachPolaroidToPin(mapId, pinId, polaroidId, photoUrl);
 
   return polaroidId;
 }
 
 export async function getPolaroid(mapId: string, polaroidId: string): Promise<Polaroid | null> {
   return getPolaroidById(mapId, polaroidId);
+}
+
+export async function getPolaroidsByIds(mapId: string, ids: string[]): Promise<Polaroid[]> {
+  return getPolaroidsByIdsBase(mapId, ids);
 }
 
 export async function deletePolaroid(

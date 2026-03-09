@@ -43,16 +43,19 @@ export async function createPin(input: CreatePinInput): Promise<string> {
  * @returns An `Unsubscribe` function to tear down the listener
  */
 /**
- * Append a Polaroid ID to a pin's `attachedPolaroidIds` array.
+ * Append a Polaroid ID to a pin's `attachedPolaroidIds` array
+ * and optionally set the cover photo URL (denormalized for map preview).
  */
 export async function attachPolaroidToPin(
   mapId: string,
   pinId: string,
   polaroidId: string,
+  coverPhotoUrl?: string,
 ): Promise<void> {
   const pinRef = doc(db, 'maps', mapId, 'pins', pinId);
   await updateDoc(pinRef, {
     attachedPolaroidIds: arrayUnion(polaroidId),
+    ...(coverPhotoUrl !== undefined && { coverPhotoUrl }),
     updatedAt: serverTimestamp(),
   });
 }

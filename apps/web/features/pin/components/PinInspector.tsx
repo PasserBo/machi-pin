@@ -1,6 +1,6 @@
 import { usePinInspectorMachine } from '../hooks/usePinInspectorMachine';
 import type { InspectorPin } from '../hooks/usePinInspectorMachine';
-import PolaroidViewer from './PolaroidViewer';
+import PolaroidDeck from './PolaroidDeck';
 import PolaroidCreator from './PolaroidCreator';
 
 export type { InspectorPin };
@@ -15,14 +15,18 @@ interface PinInspectorProps {
 export default function PinInspector({ pin, mapId, userId, pinAnchor }: PinInspectorProps) {
   const machine = usePinInspectorMachine(pin, mapId, userId);
 
-  const showViewer = Boolean(pin) && !machine.isLoading && machine.activePolaroid !== null;
+  const hasPolaroids = machine.polaroids.length > 0;
+  const showDeck = Boolean(pin) && !machine.isLoading && hasPolaroids;
   const showCreator = Boolean(pin);
 
   return (
     <>
-      {showViewer && pinAnchor && machine.activePolaroid && (
-        <PolaroidViewer
-          polaroid={machine.activePolaroid}
+      {showDeck && pinAnchor && (
+        <PolaroidDeck
+          polaroids={machine.polaroids}
+          currentIndex={machine.currentIndex}
+          onIndexChange={machine.setCurrentIndex}
+          onAddNew={machine.openCreator}
           onDelete={machine.deletePolaroid}
           anchor={pinAnchor}
         />

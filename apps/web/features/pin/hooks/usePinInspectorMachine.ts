@@ -4,6 +4,7 @@ import {
   createPolaroidForPin,
   deletePolaroid as deletePolaroidFromRepo,
   getPolaroid,
+  getPolaroidsByIds,
 } from '../repositories/pinRepository';
 
 export interface InspectorPin extends PinDocument {
@@ -16,8 +17,8 @@ interface Toast {
 }
 
 export interface PinInspectorState {
-  activePolaroid: Polaroid | null;
-  attachedPolaroidIds: string[];
+  polaroids: Polaroid[];
+  currentIndex: number;
   isLoading: boolean;
   toast: Toast | null;
   creatorPeeking: boolean;
@@ -25,10 +26,11 @@ export interface PinInspectorState {
 }
 
 export interface PinInspectorActions {
+  setCurrentIndex: (index: number) => void;
   openCreator: () => void;
   closeCreator: () => void;
   savePolaroid: (file: File | null, memo: string) => Promise<void>;
-  deletePolaroid: () => Promise<void>;
+  deletePolaroid: (polaroid: Polaroid) => Promise<void>;
 }
 
 export function usePinInspectorMachine(
@@ -36,8 +38,8 @@ export function usePinInspectorMachine(
   mapId: string,
   userId: string,
 ): PinInspectorState & PinInspectorActions {
-  const [activePolaroid, setActivePolaroid] = useState<Polaroid | null>(null);
-  const [attachedPolaroidIds, setAttachedPolaroidIds] = useState<string[]>([]);
+  const [polaroids, setPolaroids] = useState<Polaroid[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
 
@@ -49,10 +51,10 @@ export function usePinInspectorMachine(
   useEffect(() => {
     let cancelled = false;
 
-    async function hydrateLatestPolaroid() {
+    async function hydrateAllPolaroids() {
       if (!pin) {
-        setAttachedPolaroidIds([]);
-        setActivePolaroid(null);
+        setPolaroids([]);
+        setCurrentIndex(0);
         setIsLoading(false);
         setCreatorPeeking(false);
         setCreatorOpen(false);
@@ -60,10 +62,10 @@ export function usePinInspectorMachine(
       }
 
       const ids = pin.attachedPolaroidIds ?? [];
-      setAttachedPolaroidIds(ids);
 
       if (ids.length === 0) {
-        setActivePolaroid(null);
+        setPolaroids([]);
+        setCurrentIndex(0);
         setIsLoading(false);
         setCreatorPeeking(true);
         setCreatorOpen(false);
@@ -72,35 +74,34 @@ export function usePinInspectorMachine(
 
       setCreatorPeeking(true);
       setCreatorOpen(false);
-
       setIsLoading(true);
+
       try {
-        const latestId = ids[ids.length - 1];
-        if (!latestId) {
-          setActivePolaroid(null);
-          return;
-        }
-        const data = await getPolaroid(pin.mapId, latestId);
-        if (!cancelled) {
-          setActivePolaroid(data);
-        }
+        const all = await getPolaroidsByIds(pin.mapId, ids);
+        if (cancelled) return;
+
+        // Sort newest-first by createdAt
+        all.sort((a, b) => {
+          const ta = typeof a.createdAt === 'number' ? a.createdAt : 0;
+          const tb = typeof b.createdAt === 'number' ? b.createdAt : 0;
+          return tb - ta;
+        });
+
+        setPolaroids(all);
+        setCurrentIndex(0);
       } catch (error) {
         if (!cancelled) {
-          console.error('Failed to fetch polaroid:', error);
-          setActivePolaroid(null);
-          setToast({ message: 'Failed to load polaroid', type: 'error' });
+          console.error('Failed to fetch polaroids:', error);
+          setPolaroids([]);
+          setToast({ message: 'Failed to load polaroids', type: 'error' });
         }
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     }
 
-    hydrateLatestPolaroid();
-    return () => {
-      cancelled = true;
-    };
+    hydrateAllPolaroids();
+    return () => { cancelled = true; };
   }, [pin?.id, pin?.mapId, attachedIdsKey]);
 
   useEffect(() => {
@@ -139,11 +140,9 @@ export function usePinInspectorMachine(
           setToast({ message: 'Saved, but failed to hydrate card', type: 'error' });
           return;
         }
-        setAttachedPolaroidIds((prev) => {
-          if (prev.includes(newPolaroidId)) return prev;
-          return [...prev, newPolaroidId];
-        });
-        setActivePolaroid(latest);
+
+        setPolaroids((prev) => [latest, ...prev]);
+        setCurrentIndex(0);
         setCreatorOpen(false);
         setCreatorPeeking(true);
         setToast({ message: 'Polaroid pinned!', type: 'success' });
@@ -155,48 +154,44 @@ export function usePinInspectorMachine(
     [pin, userId, mapId],
   );
 
-  const deletePolaroid = useCallback(async () => {
-    if (!pin || !activePolaroid) return;
+  const deletePolaroid = useCallback(
+    async (polaroid: Polaroid) => {
+      if (!pin) return;
 
-    setIsLoading(true);
-    try {
-      await deletePolaroidFromRepo(
-        pin.mapId,
-        pin.id,
-        activePolaroid.id,
-        activePolaroid.storagePath,
-      );
+      setIsLoading(true);
+      try {
+        await deletePolaroidFromRepo(
+          pin.mapId,
+          pin.id,
+          polaroid.id,
+          polaroid.storagePath,
+        );
 
-      const newIds = attachedPolaroidIds.filter((id) => id !== activePolaroid.id);
-      setAttachedPolaroidIds(newIds);
+        setPolaroids((prev) => {
+          const next = prev.filter((p) => p.id !== polaroid.id);
+          if (next.length === 0) {
+            setCreatorPeeking(true);
+            setCreatorOpen(false);
+          }
+          return next;
+        });
 
-      if (newIds.length === 0) {
-        setActivePolaroid(null);
-        setCreatorPeeking(true);
-        setCreatorOpen(false);
-      } else {
-        const latestId = newIds[newIds.length - 1];
-        if (!latestId) {
-          setActivePolaroid(null);
-          setCreatorPeeking(true);
-        } else {
-          const latest = await getPolaroid(pin.mapId, latestId);
-          setActivePolaroid(latest);
-        }
+        setCurrentIndex((prev) => Math.min(prev, Math.max(polaroids.length - 2, 0)));
+        setToast({ message: 'Polaroid deleted', type: 'success' });
+      } catch (error) {
+        console.error('Failed to delete polaroid:', error);
+        setToast({ message: 'Failed to delete polaroid', type: 'error' });
+      } finally {
+        setIsLoading(false);
       }
-
-      setToast({ message: 'Polaroid deleted', type: 'success' });
-    } catch (error) {
-      console.error('Failed to delete polaroid:', error);
-      setToast({ message: 'Failed to delete polaroid', type: 'error' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [pin, activePolaroid, attachedPolaroidIds]);
+    },
+    [pin, polaroids.length],
+  );
 
   return {
-    activePolaroid,
-    attachedPolaroidIds,
+    polaroids,
+    currentIndex,
+    setCurrentIndex,
     isLoading,
     toast,
     creatorPeeking,

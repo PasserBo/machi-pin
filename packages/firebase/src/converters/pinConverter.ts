@@ -34,6 +34,7 @@ export const pinConverter: FirestoreDataConverter<PinDocument & { id: string }> 
       location: d.location ?? { lat: 0, lng: 0 },
       style: d.style ?? { color: 'red', iconType: 'standard' },
       attachedPolaroidIds,
+      ...(d.coverPhotoUrl && { coverPhotoUrl: d.coverPhotoUrl }),
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
     };

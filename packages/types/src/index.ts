@@ -175,6 +175,9 @@ export interface PinDocument {
 
   // Polaroid references (stacking order: last = top)
   attachedPolaroidIds?: string[];
+
+  /** 最新一张拍立得的缩略图 URL (冗余字段，避免 N+1 查询) */
+  coverPhotoUrl?: string;
   
   // Metadata
   createdAt: unknown;             // Firestore Timestamp

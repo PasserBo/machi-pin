@@ -446,6 +446,8 @@ export default function MapDetailPage() {
                       <PinMarker
                         color={pin.style.color}
                         isSelected={selectedPin?.id === pin.id}
+                        coverPhotoUrl={pin.coverPhotoUrl}
+                        polaroidCount={pin.attachedPolaroidIds?.length ?? 0}
                       />
                     </div>
                   </Marker>

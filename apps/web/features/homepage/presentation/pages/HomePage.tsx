@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import { ReactCompareSlider } from 'react-compare-slider';
 import { useAuth } from '@/features/authorization/presentation/components/AuthContext';
 import TopNavBar, { TOP_NAV_BAR_HEIGHT } from '@/components/TopNavBar';
 
 export default function Home() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [contrastPosition, setContrastPosition] = useState(50);
 
   useEffect(() => {
     if (user && !loading) {
@@ -79,80 +79,31 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ——— 第二板块：痛点对比 Before/After ——— */}
-        <section className="bg-white border-y border-gray-200 py-20 sm:py-28">
-          <div className="max-w-6xl mx-auto px-6">
-            <p className="text-center text-2xl sm:text-3xl font-semibold text-gray-800 mb-12">
+        {/* ——— 第二板块：痛点对比 (The Contrast) ——— */}
+        <section className="py-24 bg-[#faf8f5]">
+          <div className="max-w-5xl mx-auto px-6">
+            <p className="text-center text-stone-500 mb-12 text-xl sm:text-2xl">
               屏蔽算法的数据，记录自己的足迹。
             </p>
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-200 aspect-[16/10] max-h-[520px] bg-gray-100">
-              {/* 可滑动遮罩：左侧露出「噪音」，右侧露出「宁静」 */}
-              <div className="absolute inset-0 flex">
-                {/* 左侧：噪音 */}
-                <div
-                  className="h-full flex-shrink-0 flex flex-col items-center justify-center p-8 sm:p-12 bg-gradient-to-br from-slate-700 to-slate-900 text-white overflow-hidden"
-                  style={{ width: `${contrastPosition}%`, minWidth: 0 }}
-                >
-                  <div className="text-center mb-6">
-                    <span className="text-sm font-medium uppercase tracking-wider text-slate-300">噪音</span>
+            <div className="h-[400px] md:h-[600px] rounded-[2rem] shadow-2xl overflow-hidden bg-stone-200">
+              <ReactCompareSlider
+                itemOne={
+                  <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-600 via-slate-700 to-slate-900 text-white text-center px-6">
+                    <span className="text-lg sm:text-xl font-medium">
+                      [占位图：嘈杂、拥挤的现代地图截图]
+                    </span>
                   </div>
-                  <div className="w-full max-w-sm space-y-3 text-left">
-                    <div className="flex items-center gap-2 text-slate-300 text-sm">
-                      <span className="text-yellow-400">★★★★☆</span> 商家 · 评分 · 拥堵
-                    </div>
-                    <div className="h-2 bg-slate-600 rounded-full w-full" />
-                    <div className="flex flex-wrap gap-2">
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                        <span key={i} className="px-2 py-1 bg-slate-600 rounded text-xs">POI</span>
-                      ))}
-                    </div>
-                    <div className="h-16 bg-slate-600/50 rounded-lg flex items-center justify-center text-slate-400 text-xs">
-                      广告 / 推荐信息流
-                    </div>
-                    <p className="text-slate-400 text-xs">冷色、刺眼、充满预设图标</p>
+                }
+                itemTwo={
+                  <div className="h-full w-full flex items-center justify-center bg-[#F5F5DC] text-stone-600 text-center px-6">
+                    <span className="text-lg sm:text-xl font-medium">
+                      [占位图：极简的 Machi-Pin 地图截图]
+                    </span>
                   </div>
-                </div>
-                {/* 右侧：宁静 */}
-                <div
-                  className="h-full flex-1 flex flex-col items-center justify-center p-8 sm:p-12 bg-gradient-to-br from-amber-50 to-stone-100 text-gray-800 overflow-hidden"
-                  style={{ minWidth: 0 }}
-                >
-                  <div className="text-center mb-6">
-                    <span className="text-sm font-medium uppercase tracking-wider text-amber-800/80">宁静</span>
-                  </div>
-                  <div className="w-full max-w-sm space-y-3 text-left">
-                    <div className="opacity-60" style={{ backgroundImage: 'linear-gradient(to right, #d4d0c8 1px, transparent 1px), linear-gradient(to bottom, #d4d0c8 1px, transparent 1px)', backgroundSize: '16px 16px', height: 80, borderRadius: 8 }} />
-                    <div className="flex gap-2 justify-start">
-                      <div className="w-16 h-20 bg-white rounded shadow border border-gray-200 transform -rotate-3" />
-                      <div className="w-14 h-18 bg-white rounded shadow border border-gray-200 transform rotate-2 mt-2" />
-                    </div>
-                    <p className="text-amber-900/70 text-xs">只有你的拍立得，淡淡街道肌理</p>
-                  </div>
-                </div>
-              </div>
-              {/* 滑动条 */}
-              <div
-                className="absolute top-0 bottom-0 w-1.5 bg-gray-800 cursor-ew-resize z-10 flex items-center justify-center group"
-                style={{ left: `${contrastPosition}%`, transform: 'translateX(-50%)' }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  const start = contrastPosition;
-                  const startX = e.clientX;
-                  const move = (e: MouseEvent) => {
-                    const el = e.currentTarget as HTMLElement;
-                    if (!el?.parentElement) return;
-                    const rect = el.parentElement.getBoundingClientRect();
-                    const p = Math.max(15, Math.min(85, start + ((e.clientX - startX) / rect.width) * 100));
-                    setContrastPosition(p);
-                  };
-                  window.addEventListener('mousemove', move);
-                  window.addEventListener('mouseup', () => window.removeEventListener('mousemove', move), { once: true });
-                }}
-              >
-                <span className="absolute left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-                  拖动对比
-                </span>
-              </div>
+                }
+                className="h-full w-full"
+                style={{ minHeight: 0 }}
+              />
             </div>
           </div>
         </section>

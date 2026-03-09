@@ -12,6 +12,8 @@ import type { LngLatBounds, LngLatBoundsLike, FitBoundsOptions } from 'maplibre-
 
 // Maptiler API key
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+// Force rebuild to inject new MapTiler Key - 2026-03-10
+console.log("Map initialized v2");
 
 // Available map styles
 export const MAP_STYLES = {

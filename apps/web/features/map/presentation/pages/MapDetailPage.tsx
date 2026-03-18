@@ -12,7 +12,6 @@ import {
   type PinWithId,
 } from '../../repositories/mapRepository';
 import { useAuth } from '@/features/authorization/presentation/components/AuthContext';
-import ProtectedRoute from '@/features/authorization/presentation/components/ProtectedRoute';
 import PinToolbar from '../components/PinToolbar';
 import DragOverlay from '../components/DragOverlay';
 import { useIsMobile } from '../../useIsMobile';
@@ -55,10 +54,11 @@ const MAX_PIN_FOCUS_VERTICAL_OFFSET_PX = 296;
 export default function MapDetailPage() {
   const router = useRouter();
   const { mapId } = router.query;
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, loading: isAuthLoading } = useAuth();
   
   // Map data state
   const [mapData, setMapData] = useState<MapWithId | null>(null);
+  const [isReadOnly, setIsReadOnly] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPinColor, setSelectedPinColor] = useState<PinColor | null>(null);
@@ -227,6 +227,7 @@ export default function MapDetailPage() {
   const handleDragEnd = useCallback(async (clientX: number, clientY: number) => {
     if (!dragState.isDragging || !dragState.color) return;
     if (!mapId || typeof mapId !== 'string') return;
+    if (isReadOnly) return;
     if (!firebaseUser?.uid) return;
 
     // Stop edge scrolling
@@ -270,7 +271,7 @@ export default function MapDetailPage() {
       color: null,
       position: { x: 0, y: 0 },
     });
-  }, [dragState.isDragging, dragState.color, mapId, firebaseUser?.uid, isMobile, stopScroll]);
+  }, [dragState.isDragging, dragState.color, mapId, firebaseUser?.uid, isMobile, stopScroll, isReadOnly]);
 
   // Handle drag cancel (e.g., escape key, drag out of bounds)
   const handleDragCancel = useCallback(() => {
@@ -335,12 +336,27 @@ export default function MapDetailPage() {
   useEffect(() => {
     async function loadMap() {
       if (!mapId || typeof mapId !== 'string') return;
-      if (!firebaseUser?.uid) { setIsLoading(false); return; }
+      if (isAuthLoading) return;
+
+      setIsLoading(true);
+      setError(null);
+      setMapData(null);
+      setPins([]);
+      setSelectedPin(null);
 
       try {
         const map = await fetchMap(mapId);
         if (!map) { setError('地图不存在'); setIsLoading(false); return; }
-        if (map.ownerUid !== firebaseUser.uid) { setError('您没有权限查看此地图'); setIsLoading(false); return; }
+        const isOwner = map.ownerUid === firebaseUser?.uid;
+        const isPublic = (map.visibility ?? 'private') === 'public';
+        const isSharedForSignedInUser =
+          (map.visibility ?? 'private') === 'shared' && Boolean(firebaseUser?.uid);
+        if (!isOwner && !isPublic && !isSharedForSignedInUser) {
+          setError('您没有权限查看此地图');
+          setIsLoading(false);
+          return;
+        }
+        setIsReadOnly(!isOwner);
         setMapData(map);
       } catch (err) {
         console.error('Failed to fetch map:', err);
@@ -350,12 +366,12 @@ export default function MapDetailPage() {
       }
     }
     loadMap();
-  }, [mapId, firebaseUser?.uid]);
+  }, [mapId, firebaseUser?.uid, isAuthLoading]);
 
   // Subscribe to pins collection in real-time via repository
   useEffect(() => {
     if (!mapId || typeof mapId !== 'string') return;
-    if (!firebaseUser?.uid) return;
+    if (!mapData) return;
 
     const unsubscribe = subscribeToPins(
       mapId,
@@ -366,7 +382,7 @@ export default function MapDetailPage() {
       (err) => console.error('Failed to subscribe to pins:', err),
     );
     return () => unsubscribe();
-  }, [mapId, firebaseUser?.uid]);
+  }, [mapId, mapData]);
 
   // If selected pin disappears from snapshot, close inspector
   useEffect(() => {
@@ -378,7 +394,7 @@ export default function MapDetailPage() {
   }, [pins, selectedPin]);
 
   return (
-    <ProtectedRoute>
+    <>
       <Head>
         <title>{mapData?.name || 'Map'} - Machi-Pin</title>
       </Head>
@@ -460,6 +476,7 @@ export default function MapDetailPage() {
               mapId={mapId as string}
               userId={firebaseUser?.uid ?? ''}
               pinAnchor={pinAnchor}
+              readOnly={isReadOnly}
             />
 
             {/* Top Left: Back Button */}
@@ -483,22 +500,29 @@ export default function MapDetailPage() {
                   <span className="text-red-500">📍</span>
                   <span>{mapData.pinCount || 0} pins</span>
                 </div>
+                {isReadOnly && (
+                  <div className="mt-2 text-[11px] inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                    Read only
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Bottom: Pin Toolbar */}
-            <PinToolbar
-              selectedColor={selectedPinColor}
-              onSelectColor={(color) => {
-                // Toggle selection: clicking same color deselects
-                setSelectedPinColor(prev => prev === color ? null : color);
-              }}
-              onDragStart={handleDragStart}
-              isDragging={dragState.isDragging}
-            />
+            {!isReadOnly && (
+              <PinToolbar
+                selectedColor={selectedPinColor}
+                onSelectColor={(color) => {
+                  // Toggle selection: clicking same color deselects
+                  setSelectedPinColor(prev => prev === color ? null : color);
+                }}
+                onDragStart={handleDragStart}
+                isDragging={dragState.isDragging}
+              />
+            )}
 
             {/* Drag Overlay */}
-            {dragState.isDragging && dragState.color && (
+            {!isReadOnly && dragState.isDragging && dragState.color && (
               <DragOverlay
                 isDragging={dragState.isDragging}
                 position={dragState.position}
@@ -509,6 +533,6 @@ export default function MapDetailPage() {
           </>
         )}
       </div>
-    </ProtectedRoute>
+    </>
   );
 }

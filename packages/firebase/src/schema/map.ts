@@ -18,6 +18,7 @@ const centerPointSchema = z.object({
 export const mapDocSchema = z.object({
   name: z.string().min(1),
   ownerUid: z.string().min(1),
+  visibility: z.enum(['private', 'public', 'shared']),
   styleKey: z.string(),
   styleUrl: z.string().url(),
   thumbnailUrl: z.string().url().optional(),
@@ -33,6 +34,7 @@ export const mapDocSchema = z.object({
 export const createMapInputSchema = z.object({
   name: z.string().min(1, 'Map name is required'),
   ownerUid: z.string().min(1),
+  visibility: z.enum(['private', 'public', 'shared']).optional(),
   styleKey: z.string(),
   styleUrl: z.string().url(),
   boundingBox: boundingBoxSchema,

@@ -11,7 +11,7 @@ import {
   increment,
   serverTimestamp,
 } from 'firebase/firestore';
-import type { MapDocument } from '@repo/types';
+import type { MapDocument, MapVisibility } from '@repo/types';
 import { db } from '../client';
 import { mapConverter } from '../converters/mapConverter';
 import type { CreateMapInput } from '../schema/map';
@@ -54,11 +54,23 @@ export async function createMap(input: CreateMapInput): Promise<string> {
   // Write raw data (bypass converter) to use serverTimestamp()
   const docRef = await addDoc(collection(db, COLLECTION), {
     ...input,
+    visibility: input.visibility ?? 'private',
     pinCount: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
   return docRef.id;
+}
+
+/** Update map visibility (private/public/shared). */
+export async function setMapVisibility(
+  mapId: string,
+  visibility: MapVisibility,
+): Promise<void> {
+  await updateDoc(doc(db, COLLECTION, mapId), {
+    visibility,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /** Atomically adjust a map's pinCount by `delta` (usually +1 or -1). */

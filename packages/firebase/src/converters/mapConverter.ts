@@ -28,6 +28,7 @@ export const mapConverter: FirestoreDataConverter<MapDocument & { id: string }> 
       id: snapshot.id,
       name: d.name ?? '',
       ownerUid: d.ownerUid ?? '',
+      visibility: d.visibility ?? 'private',
       styleKey: d.styleKey ?? '',
       styleUrl: d.styleUrl ?? '',
       thumbnailUrl: d.thumbnailUrl ?? undefined,

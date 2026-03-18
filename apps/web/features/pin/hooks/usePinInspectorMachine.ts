@@ -37,6 +37,7 @@ export function usePinInspectorMachine(
   pin: InspectorPin | null,
   mapId: string,
   userId: string,
+  canEdit = true,
 ): PinInspectorState & PinInspectorActions {
   const [polaroids, setPolaroids] = useState<Polaroid[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -111,8 +112,9 @@ export function usePinInspectorMachine(
   }, [toast]);
 
   const openCreator = useCallback(() => {
+    if (!canEdit) return;
     setCreatorOpen(true);
-  }, []);
+  }, [canEdit]);
 
   const closeCreator = useCallback(() => {
     setCreatorOpen(false);
@@ -120,6 +122,7 @@ export function usePinInspectorMachine(
 
   const savePolaroid = useCallback(
     async (file: File | null, memo: string) => {
+      if (!canEdit) return;
       if (!pin || !userId) return;
       if (!file && !memo.trim()) {
         setToast({ message: 'Add a photo or memo first', type: 'error' });
@@ -151,11 +154,12 @@ export function usePinInspectorMachine(
         setToast({ message: 'Failed to save polaroid', type: 'error' });
       }
     },
-    [pin, userId, mapId],
+    [pin, userId, mapId, canEdit],
   );
 
   const deletePolaroid = useCallback(
     async (polaroid: Polaroid) => {
+      if (!canEdit) return;
       if (!pin) return;
 
       setIsLoading(true);
@@ -185,7 +189,7 @@ export function usePinInspectorMachine(
         setIsLoading(false);
       }
     },
-    [pin, polaroids.length],
+    [pin, polaroids.length, canEdit],
   );
 
   return {

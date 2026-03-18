@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { fetchUserMaps } from '../../repositories/dashboardRepository';
+import {
+  fetchUserMaps,
+  setMapVisibility as setMapVisibilityInRepo,
+} from '../../repositories/dashboardRepository';
 import { useAuth } from '@/features/authorization/presentation/components/AuthContext';
 import ProtectedRoute from '@/features/authorization/presentation/components/ProtectedRoute';
 import MapCard, { type MapListItem } from '../components/MapCard';
+import type { MapVisibility } from '@repo/types';
 
 export default function DashboardPage() {
   const { user, firebaseUser, signOut } = useAuth();
   const [maps, setMaps] = useState<MapListItem[]>([]);
+  const [updatingMapIds, setUpdatingMapIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +35,35 @@ export default function DashboardPage() {
 
   const handleSignOut = async () => {
     try { await signOut(); } catch (error) { console.error('Error signing out:', error); }
+  };
+
+  const handleVisibilityChange = async (mapId: string, visibility: MapVisibility) => {
+    const previous = maps;
+    setUpdatingMapIds((prev) => [...prev, mapId]);
+    setMaps((prev) =>
+      prev.map((map) => (map.id === mapId ? { ...map, visibility } : map)),
+    );
+    try {
+      await setMapVisibilityInRepo(mapId, visibility);
+    } catch (err) {
+      console.error('Failed to update map visibility:', err);
+      setMaps(previous);
+      setError('地图权限更新失败，请重试');
+    } finally {
+      setUpdatingMapIds((prev) => prev.filter((id) => id !== mapId));
+    }
+  };
+
+  const handleCopyPublicLink = async (mapId: string) => {
+    if (typeof window === 'undefined') return;
+    const url = `${window.location.origin}/map/${mapId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      window.alert('公开地图链接已复制');
+    } catch (err) {
+      console.error('Failed to copy public link:', err);
+      window.prompt('复制公开链接：', url);
+    }
   };
 
   return (
@@ -75,7 +109,15 @@ export default function DashboardPage() {
           )}
           {!isLoading && !error && maps.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {maps.map((map) => <MapCard key={map.id} map={map} />)}
+              {maps.map((map) => (
+                <MapCard
+                  key={map.id}
+                  map={map}
+                  isUpdatingVisibility={updatingMapIds.includes(map.id)}
+                  onVisibilityChange={handleVisibilityChange}
+                  onCopyPublicLink={handleCopyPublicLink}
+                />
+              ))}
             </div>
           )}
           {!isLoading && !error && maps.length === 0 && (

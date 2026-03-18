@@ -7,7 +7,7 @@ import {
   type MapWithId,
   type PinWithId,
 } from '@repo/firebase/repositories';
-import type { PinColor, PinIconType } from '@repo/types';
+import type { MapVisibility, PinColor, PinIconType } from '@repo/types';
 import type { Unsubscribe } from 'firebase/firestore';
 
 // ── Map Reads ───────────────────────────────────────────────
@@ -22,6 +22,7 @@ export async function fetchMap(mapId: string): Promise<MapWithId | null> {
 export interface CreateMapParams {
   name: string;
   ownerUid: string;
+  visibility?: MapVisibility;
   styleKey: string;
   styleUrl: string;
   boundingBox: { north: number; south: number; east: number; west: number };

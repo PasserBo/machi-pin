@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { MapDocument } from '@repo/types';
+import type { MapDocument, MapVisibility } from '@repo/types';
 
 export interface MapListItem extends MapDocument {
   id: string;
@@ -7,15 +7,24 @@ export interface MapListItem extends MapDocument {
 
 interface MapCardProps {
   map: MapListItem;
+  isUpdatingVisibility?: boolean;
+  onVisibilityChange?: (mapId: string, visibility: MapVisibility) => void;
+  onCopyPublicLink?: (mapId: string) => void;
 }
 
-export default function MapCard({ map }: MapCardProps) {
+export default function MapCard({
+  map,
+  isUpdatingVisibility = false,
+  onVisibilityChange,
+  onCopyPublicLink,
+}: MapCardProps) {
   const formattedDate = formatDate(map.createdAt);
   const previewUrl = generateMapPreview(map);
+  const visibility = map.visibility ?? 'private';
 
   return (
-    <Link href={`/map/${map.id}`} className="block group">
-      <div className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-amber-100 group-hover:border-amber-300 group-hover:-translate-y-1">
+    <div className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-amber-100 hover:border-amber-300 hover:-translate-y-1">
+      <Link href={`/map/${map.id}`} className="block group">
         <div className="relative h-44 bg-gradient-to-br from-amber-50 to-orange-50 overflow-hidden">
           {previewUrl ? (
             <img src={previewUrl} alt={map.name} className="w-full h-full object-cover" loading="lazy" />
@@ -42,9 +51,36 @@ export default function MapCard({ map }: MapCardProps) {
             <span className="inline-block px-3 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded-full capitalize">{map.styleKey || 'basic'}</span>
           </div>
         </div>
-        <div className="h-1 bg-gradient-to-r from-amber-200 via-orange-200 to-amber-200" />
+      </Link>
+      <div className="px-5 pb-5">
+        <div className="rounded-xl border border-amber-100 bg-amber-50/40 px-3 py-3 flex items-center gap-2">
+          <label htmlFor={`visibility-${map.id}`} className="text-xs font-medium text-gray-600 shrink-0">
+            Visibility
+          </label>
+          <select
+            id={`visibility-${map.id}`}
+            value={visibility}
+            onChange={(e) => onVisibilityChange?.(map.id, e.target.value as MapVisibility)}
+            disabled={isUpdatingVisibility}
+            className="min-w-0 flex-1 rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-sm text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:opacity-70"
+          >
+            <option value="private">Private</option>
+            <option value="public">Public</option>
+            <option value="shared">Shared</option>
+          </select>
+          {visibility === 'public' && (
+            <button
+              type="button"
+              onClick={() => onCopyPublicLink?.(map.id)}
+              className="rounded-lg bg-white px-3 py-2 text-xs font-medium text-amber-700 border border-amber-200 hover:bg-amber-100 transition whitespace-nowrap"
+            >
+              Copy Link
+            </button>
+          )}
+        </div>
       </div>
-    </Link>
+      <div className="h-1 bg-gradient-to-r from-amber-200 via-orange-200 to-amber-200" />
+    </div>
   );
 }
 

@@ -10,14 +10,15 @@ interface PinInspectorProps {
   mapId: string;
   userId: string;
   pinAnchor: { x: number; y: number } | null;
+  readOnly?: boolean;
 }
 
-export default function PinInspector({ pin, mapId, userId, pinAnchor }: PinInspectorProps) {
-  const machine = usePinInspectorMachine(pin, mapId, userId);
+export default function PinInspector({ pin, mapId, userId, pinAnchor, readOnly = false }: PinInspectorProps) {
+  const machine = usePinInspectorMachine(pin, mapId, userId, !readOnly);
 
   const hasPolaroids = machine.polaroids.length > 0;
   const showDeck = Boolean(pin) && !machine.isLoading && hasPolaroids;
-  const showCreator = Boolean(pin);
+  const showCreator = Boolean(pin) && !readOnly;
 
   return (
     <>
@@ -26,8 +27,8 @@ export default function PinInspector({ pin, mapId, userId, pinAnchor }: PinInspe
           polaroids={machine.polaroids}
           currentIndex={machine.currentIndex}
           onIndexChange={machine.setCurrentIndex}
-          onAddNew={machine.openCreator}
-          onDelete={machine.deletePolaroid}
+          onAddNew={readOnly ? undefined : machine.openCreator}
+          onDelete={readOnly ? undefined : machine.deletePolaroid}
           anchor={pinAnchor}
         />
       )}

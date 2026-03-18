@@ -17,6 +17,7 @@ export {
   getMapById,
   listMapsByOwner,
   createMap,
+  setMapVisibility,
   adjustPinCount,
   type MapWithId,
 } from './repositories/mapRepository';

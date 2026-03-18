@@ -14,7 +14,7 @@ interface PolaroidDeckProps {
   polaroids: Polaroid[];
   currentIndex: number;
   onIndexChange: (index: number) => void;
-  onAddNew: () => void;
+  onAddNew?: () => void;
   onDelete?: (polaroid: Polaroid) => void;
   anchor: { x: number; y: number };
 }
@@ -162,8 +162,9 @@ export default function PolaroidDeck({
   const viewerTop = anchor.y + PIN_CONNECTOR_HEIGHT;
 
   const total = polaroids.length;
-  const isAtEnd = currentIndex >= total;
-  const canGoNext = currentIndex < total;
+  const canAddNew = Boolean(onAddNew);
+  const isAtEnd = canAddNew && currentIndex >= total;
+  const canGoNext = canAddNew ? currentIndex < total : currentIndex < total - 1;
   const canGoPrev = currentIndex > 0;
 
   const goNext = useCallback(() => {
@@ -270,7 +271,7 @@ export default function PolaroidDeck({
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
           >
-            <AddCard onClick={onAddNew} />
+            {onAddNew && <AddCard onClick={onAddNew} />}
           </motion.div>
         ) : (
           <>

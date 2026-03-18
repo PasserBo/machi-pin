@@ -52,6 +52,7 @@ export interface MapDocument {
   id?: string;              // Firestore Doc ID (optional, added after creation)
   name: string;             // 地图名称 (用户输入)
   ownerUid: string;         // 创建者的 UID
+  visibility: MapVisibility; // 访问权限：private/public/shared
   
   // 地图视觉数据
   styleKey: string;         // Map style key (e.g., 'basic', 'streets')
@@ -75,6 +76,11 @@ export interface MapDocument {
  * Create MapDocument input (for form submission)
  */
 export type CreateMapDocumentInput = Omit<MapDocument, 'id' | 'createdAt' | 'updatedAt' | 'pinCount' | 'thumbnailUrl'>;
+
+/**
+ * Access level for map sharing.
+ */
+export type MapVisibility = 'private' | 'public' | 'shared';
 
 /**
  * GPS coordinates

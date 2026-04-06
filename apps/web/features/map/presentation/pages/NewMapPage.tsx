@@ -7,6 +7,8 @@ import { useAuth } from '@/features/authorization/presentation/components/AuthCo
 import MapNameModal from '../components/MapNameModal';
 import type { MapCanvasHandle, MapStyleKey } from '../components/MapCanvas';
 import { MAP_STYLES } from '../components/MapCanvas';
+import { mapClientToContainerPoint } from '../../mapCoordinates';
+import { useLockDocumentScroll, useMapResizeOnVisualViewport } from '../../useMapPageViewport';
 
 // Viewfinder element ID for getting bounding rect
 const VIEWFINDER_ID = 'map-viewfinder-frame';
@@ -49,6 +51,11 @@ export default function NewMapPage() {
     setIsMapReady(true);
   }, []);
 
+  const getMap = useCallback(() => mapHandleRef.current?.getMap(), []);
+
+  useLockDocumentScroll();
+  useMapResizeOnVisualViewport(getMap);
+
   /**
    * Calculate the bounding box of the viewfinder area
    * Uses map.unproject() to convert pixel coordinates to lat/lng
@@ -64,15 +71,12 @@ export default function NewMapPage() {
       return null;
     }
 
-    // Get the pixel coordinates of the viewfinder corners
     const rect = viewfinderEl.getBoundingClientRect();
-    
-    // Convert pixel coordinates to lat/lng using map.unproject()
-    // unproject takes [x, y] pixel coordinates and returns LngLat
-    const topLeft = map.unproject([rect.left, rect.top]);
-    const topRight = map.unproject([rect.right, rect.top]);
-    const bottomLeft = map.unproject([rect.left, rect.bottom]);
-    const bottomRight = map.unproject([rect.right, rect.bottom]);
+
+    const topLeft = map.unproject(mapClientToContainerPoint(map, rect.left, rect.top));
+    const topRight = map.unproject(mapClientToContainerPoint(map, rect.right, rect.top));
+    const bottomLeft = map.unproject(mapClientToContainerPoint(map, rect.left, rect.bottom));
+    const bottomRight = map.unproject(mapClientToContainerPoint(map, rect.right, rect.bottom));
 
     // Calculate bounding box
     const north = Math.max(topLeft.lat, topRight.lat);
@@ -182,7 +186,7 @@ export default function NewMapPage() {
         <title>New Map - Machi-Pin</title>
       </Head>
 
-      <div className="h-screen w-screen flex flex-col overflow-hidden relative">
+      <div className="flex h-dvh min-h-dvh w-full max-w-[100vw] flex-col overflow-hidden relative">
         {/* Layer 1: Fullscreen Map (bottom) */}
         <div className="absolute inset-0">
           <MapCanvas 

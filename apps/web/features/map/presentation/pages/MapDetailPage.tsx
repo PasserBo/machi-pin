@@ -27,6 +27,8 @@ import {
   isLngLatInBoundingBox,
   MAP_PAN_EXPANSION_FACTOR,
 } from '../../domain/boundingBox';
+import { mapClientToContainerPoint, mapContainerPointToClient } from '../../mapCoordinates';
+import { useLockDocumentScroll, useMapResizeOnVisualViewport } from '../../useMapPageViewport';
 
 // Dynamic import to avoid SSR issues with maplibre-gl
 const MapCanvas = dynamic(() => import('../components/MapCanvas'), {
@@ -113,6 +115,9 @@ export default function MapDetailPage() {
     { enabled: !isMobile && dragState.isDragging }
   );
 
+  useLockDocumentScroll();
+  useMapResizeOnVisualViewport(getMap);
+
   // Handle map ready
   const handleMapReady = useCallback((handle: MapCanvasHandle) => {
     mapHandleRef.current = handle;
@@ -196,7 +201,7 @@ export default function MapDetailPage() {
 
     const updateAnchor = () => {
       const point = map.project([selectedPin.location.lng, selectedPin.location.lat]);
-      setPinAnchor({ x: point.x, y: point.y });
+      setPinAnchor(mapContainerPointToClient(map, point.x, point.y));
     };
 
     updateAnchor();
@@ -230,7 +235,8 @@ export default function MapDetailPage() {
     const map = mapHandleRef.current?.getMap();
     let dropInsideMap = true;
     if (map && mapData?.boundingBox) {
-      const lngLat = map.unproject([clientX, dropY]);
+      const [mx, my] = mapClientToContainerPoint(map, clientX, dropY);
+      const lngLat = map.unproject([mx, my]);
       dropInsideMap = isLngLatInBoundingBox(lngLat.lat, lngLat.lng, mapData.boundingBox);
     }
 
@@ -276,8 +282,8 @@ export default function MapDetailPage() {
       return;
     }
 
-    // Convert screen coordinates to map coordinates (lng/lat)
-    const lngLat = map.unproject([clientX, dropY]);
+    const [mx, my] = mapClientToContainerPoint(map, clientX, dropY);
+    const lngLat = map.unproject([mx, my]);
 
     if (
       mapData?.boundingBox &&
@@ -451,7 +457,7 @@ export default function MapDetailPage() {
         <title>{mapData?.name || 'Map'} - Machi-Pin</title>
       </Head>
 
-      <div className="h-screen w-screen flex flex-col overflow-hidden relative">
+      <div className="flex h-dvh min-h-dvh w-full max-w-[100vw] flex-col overflow-hidden relative">
         {/* Loading State */}
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50 z-50">

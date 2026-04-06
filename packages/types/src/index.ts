@@ -196,5 +196,5 @@ export interface PinDocument {
 export type CreatePinDocumentInput = Omit<PinDocument, 'id' | 'createdAt'>;
 
 // ── Domain models (Pin with Polaroid support) ───────────────
-export type { Pin as DomainPin, Polaroid } from './domain/map';
+export type { Pin as DomainPin, Polaroid } from './domain/map.js';
 

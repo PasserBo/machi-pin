@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -21,6 +21,12 @@ import PinMarker from '../components/PinMarker';
 import type { BoundingBox, MapCanvasHandle } from '../components/MapCanvas';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import PinInspector from '@/features/pin/components/PinInspector';
+import MapRangeFrame from '../components/MapRangeFrame';
+import {
+  expandBoundingBox,
+  isLngLatInBoundingBox,
+  MAP_PAN_EXPANSION_FACTOR,
+} from '../../domain/boundingBox';
 
 // Dynamic import to avoid SSR issues with maplibre-gl
 const MapCanvas = dynamic(() => import('../components/MapCanvas'), {
@@ -40,6 +46,7 @@ interface DragState {
   isDragging: boolean;
   color: PinColor | null;
   position: { x: number; y: number };
+  dropInsideMap: boolean;
 }
 
 // Y-offset to avoid cursor/finger obstruction
@@ -61,6 +68,7 @@ export default function MapDetailPage() {
   const [isReadOnly, setIsReadOnly] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pinDropError, setPinDropError] = useState<string | null>(null);
   const [selectedPinColor, setSelectedPinColor] = useState<PinColor | null>(null);
 
   // Pins state
@@ -86,7 +94,13 @@ export default function MapDetailPage() {
     isDragging: false,
     color: null,
     position: { x: 0, y: 0 },
+    dropInsideMap: true,
   });
+
+  const panMaxBounds = useMemo(() => {
+    if (!mapData?.boundingBox) return undefined;
+    return expandBoundingBox(mapData.boundingBox, MAP_PAN_EXPANSION_FACTOR);
+  }, [mapData?.boundingBox]);
 
   // Get map instance for edge scrolling
   const getMap = useCallback((): MapLibreMap | undefined => {
@@ -200,28 +214,39 @@ export default function MapDetailPage() {
 
   // Handle drag start from toolbar
   const handleDragStart = useCallback((event: { color: PinColor; position: { x: number; y: number } }) => {
+    setPinDropError(null);
     setDragState({
       isDragging: true,
       color: event.color,
       position: event.position,
+      dropInsideMap: true,
     });
   }, []);
 
   // Handle drag move
   const handleDragMove = useCallback((clientX: number, clientY: number) => {
-    if (!dragState.isDragging) return;
+    const offsetY = isMobile ? MOBILE_DRAG_OFFSET_Y : DESKTOP_DRAG_OFFSET_Y;
+    const dropY = clientY - offsetY;
+    const map = mapHandleRef.current?.getMap();
+    let dropInsideMap = true;
+    if (map && mapData?.boundingBox) {
+      const lngLat = map.unproject([clientX, dropY]);
+      dropInsideMap = isLngLatInBoundingBox(lngLat.lat, lngLat.lng, mapData.boundingBox);
+    }
 
-    // Update drag position
-    setDragState(prev => ({
-      ...prev,
-      position: { x: clientX, y: clientY },
-    }));
+    setDragState(prev => {
+      if (!prev.isDragging) return prev;
+      return {
+        ...prev,
+        position: { x: clientX, y: clientY },
+        dropInsideMap,
+      };
+    });
 
-    // Desktop only: edge scrolling
     if (!isMobile) {
       updateEdgeScrollPosition(clientX, clientY);
     }
-  }, [dragState.isDragging, isMobile, updateEdgeScrollPosition]);
+  }, [isMobile, updateEdgeScrollPosition, mapData?.boundingBox]);
 
   // Handle drag end
   const handleDragEnd = useCallback(async (clientX: number, clientY: number) => {
@@ -242,13 +267,32 @@ export default function MapDetailPage() {
     const map = mapHandleRef.current?.getMap();
     if (!map) {
       console.error('Map instance not available');
-      setDragState({ isDragging: false, color: null, position: { x: 0, y: 0 } });
+      setDragState({
+        isDragging: false,
+        color: null,
+        position: { x: 0, y: 0 },
+        dropInsideMap: true,
+      });
       return;
     }
 
     // Convert screen coordinates to map coordinates (lng/lat)
     const lngLat = map.unproject([clientX, dropY]);
-    
+
+    if (
+      mapData?.boundingBox &&
+      !isLngLatInBoundingBox(lngLat.lat, lngLat.lng, mapData.boundingBox)
+    ) {
+      setPinDropError('Pins can only be placed inside the map area.');
+      setDragState({
+        isDragging: false,
+        color: null,
+        position: { x: 0, y: 0 },
+        dropInsideMap: true,
+      });
+      return;
+    }
+
     try {
       const pinId = await dropPinOnMap({
         mapId,
@@ -270,8 +314,9 @@ export default function MapDetailPage() {
       isDragging: false,
       color: null,
       position: { x: 0, y: 0 },
+      dropInsideMap: true,
     });
-  }, [dragState.isDragging, dragState.color, mapId, firebaseUser?.uid, isMobile, stopScroll, isReadOnly]);
+  }, [dragState.isDragging, dragState.color, mapId, firebaseUser?.uid, isMobile, stopScroll, isReadOnly, mapData?.boundingBox]);
 
   // Handle drag cancel (e.g., escape key, drag out of bounds)
   const handleDragCancel = useCallback(() => {
@@ -280,8 +325,15 @@ export default function MapDetailPage() {
       isDragging: false,
       color: null,
       position: { x: 0, y: 0 },
+      dropInsideMap: true,
     });
   }, [stopScroll]);
+
+  useEffect(() => {
+    if (!pinDropError) return;
+    const t = setTimeout(() => setPinDropError(null), 4000);
+    return () => clearTimeout(t);
+  }, [pinDropError]);
 
   // Global event listeners for drag using Pointer Events (unified mouse/touch/pen)
   useEffect(() => {
@@ -438,14 +490,12 @@ export default function MapDetailPage() {
             <div className="absolute inset-0">
               <MapCanvas
                 styleUrl={mapData.styleUrl}
-                // Use fitBounds to perfectly fit the saved viewfinder area
                 fitBounds={mapData.boundingBox as BoundingBox}
                 fitBoundsPadding={20}
-                // Also set maxBounds to restrict panning to the saved area
-                maxBounds={mapData.boundingBox as BoundingBox}
+                maxBounds={panMaxBounds as BoundingBox}
                 onMapReady={handleMapReady}
               >
-                {/* Render Pin Markers */}
+                <MapRangeFrame boundingBox={mapData.boundingBox} />
                 {pins.map((pin) => (
                   <Marker
                     key={pin.id}
@@ -528,7 +578,25 @@ export default function MapDetailPage() {
                 position={dragState.position}
                 color={dragState.color}
                 offsetY={isMobile ? MOBILE_DRAG_OFFSET_Y : DESKTOP_DRAG_OFFSET_Y}
+                placementHint={dragState.dropInsideMap ? 'inside' : 'outside'}
               />
+            )}
+
+            {pinDropError && (
+              <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 max-w-md px-4">
+                <div className="bg-amber-900/90 backdrop-blur-sm text-white px-5 py-3 rounded-2xl shadow-lg flex items-center gap-3 text-sm">
+                  <span aria-hidden>⚠️</span>
+                  <span>{pinDropError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPinDropError(null)}
+                    className="ml-auto shrink-0 hover:bg-white/10 rounded-full p-1 transition"
+                    aria-label="Dismiss"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
             )}
           </>
         )}

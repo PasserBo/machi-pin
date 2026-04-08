@@ -13,6 +13,7 @@ interface DragOverlayProps {
   offsetY?: number;
   /** When `outside`, the drop point is outside the map content bounds. */
   placementHint?: 'inside' | 'outside';
+  magnetHint?: 'none' | 'attached';
 }
 
 export default function DragOverlay({
@@ -21,11 +22,16 @@ export default function DragOverlay({
   color,
   offsetY = 0,
   placementHint = 'inside',
+  magnetHint = 'none',
 }: DragOverlayProps) {
   if (!isDragging) return null;
   const pinColor = PIN_COLOR_MAP[color];
   const hintText =
-    placementHint === 'outside' ? 'Outside map area' : 'Drag to place pin';
+    placementHint === 'outside'
+      ? 'Outside map area'
+      : magnetHint === 'attached'
+        ? 'Near your location'
+        : 'Drag to place pin';
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none" style={{ touchAction: 'none' }}>

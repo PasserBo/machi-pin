@@ -24,11 +24,24 @@ import PinInspector from '@/features/pin/components/PinInspector';
 import MapRangeFrame from '../components/MapRangeFrame';
 import {
   expandBoundingBox,
-  isLngLatInBoundingBox,
   MAP_PAN_EXPANSION_FACTOR,
 } from '../../domain/boundingBox';
-import { mapClientToContainerPoint, mapContainerPointToClient } from '../../mapCoordinates';
+import { mapContainerPointToClient } from '../../mapCoordinates';
 import { useLockDocumentScroll, useMapResizeOnVisualViewport } from '../../useMapPageViewport';
+import { useRealtimeUserLocation } from '../../useRealtimeUserLocation';
+import {
+  clientPointToLngLat,
+  getMapFromHandle,
+  isTipInsideBoundingBox,
+  lngLatToClientPoint,
+} from '@/features/mapaction/repositories/mapActionRepository';
+import {
+  createInitialDragPhysicsState,
+  getDragOffsetY,
+  resolveDragObjectEnd,
+  resolveDragObjectMove,
+  type DragPhysicsState,
+} from '@/features/mapaction/usecase/dragObjectUsecase';
 
 // Dynamic import to avoid SSR issues with maplibre-gl
 const MapCanvas = dynamic(() => import('../components/MapCanvas'), {
@@ -48,17 +61,23 @@ interface DragState {
   isDragging: boolean;
   color: PinColor | null;
   position: { x: number; y: number };
-  dropInsideMap: boolean;
+  physics: DragPhysicsState;
 }
 
-// Y-offset to avoid cursor/finger obstruction
-const MOBILE_DRAG_OFFSET_Y = 60;
-const DESKTOP_DRAG_OFFSET_Y = 24;
 const NARROW_SCREEN_BREAKPOINT = 640;
 const DEFAULT_PIN_FOCUS_OFFSET_RATIO = 0.25;
 const NARROW_PIN_FOCUS_OFFSET_RATIO = 0.16;
 const PIN_FOCUS_VERTICAL_OFFSET_RATIO = 0.38;
 const MAX_PIN_FOCUS_VERTICAL_OFFSET_PX = 296;
+
+function createIdleDragState(): DragState {
+  return {
+    isDragging: false,
+    color: null,
+    position: { x: 0, y: 0 },
+    physics: createInitialDragPhysicsState(),
+  };
+}
 
 export default function MapDetailPage() {
   const router = useRouter();
@@ -92,12 +111,8 @@ export default function MapDetailPage() {
   const isMobile = useIsMobile();
 
   // Drag state
-  const [dragState, setDragState] = useState<DragState>({
-    isDragging: false,
-    color: null,
-    position: { x: 0, y: 0 },
-    dropInsideMap: true,
-  });
+  const [dragState, setDragState] = useState<DragState>(createIdleDragState);
+  const { location: userLocation } = useRealtimeUserLocation();
 
   const panMaxBounds = useMemo(() => {
     if (!mapData?.boundingBox) return undefined;
@@ -224,35 +239,49 @@ export default function MapDetailPage() {
       isDragging: true,
       color: event.color,
       position: event.position,
-      dropInsideMap: true,
+      physics: createInitialDragPhysicsState(),
     });
   }, []);
 
   // Handle drag move
   const handleDragMove = useCallback((clientX: number, clientY: number) => {
-    const offsetY = isMobile ? MOBILE_DRAG_OFFSET_Y : DESKTOP_DRAG_OFFSET_Y;
-    const dropY = clientY - offsetY;
-    const map = mapHandleRef.current?.getMap();
-    let dropInsideMap = true;
-    if (map && mapData?.boundingBox) {
-      const [mx, my] = mapClientToContainerPoint(map, clientX, dropY);
-      const lngLat = map.unproject([mx, my]);
-      dropInsideMap = isLngLatInBoundingBox(lngLat.lat, lngLat.lng, mapData.boundingBox);
-    }
-
+    const offsetY = getDragOffsetY(isMobile);
     setDragState(prev => {
       if (!prev.isDragging) return prev;
+
+      const map = getMapFromHandle(mapHandleRef.current);
+      if (!map) {
+        return {
+          ...prev,
+          position: { x: clientX, y: clientY },
+          physics: createInitialDragPhysicsState(),
+        };
+      }
+
+      const userLocationTarget = userLocation ? lngLatToClientPoint(map, userLocation) : null;
+      const move = resolveDragObjectMove({
+        pointerClient: { x: clientX, y: clientY },
+        offsetY,
+        magnetTarget: userLocationTarget,
+        magnetSession: prev.physics.magnetSession,
+        isDropInsideMapAtTip: (tipClient) => isTipInsideBoundingBox(map, tipClient, mapData?.boundingBox),
+      });
+
       return {
         ...prev,
-        position: { x: clientX, y: clientY },
-        dropInsideMap,
+        position: move.overlayPosition,
+        physics: {
+          dropInsideMap: move.dropInsideMap,
+          magnetSession: move.magnetSession,
+          magnetHint: move.magnetHint,
+        },
       };
     });
 
     if (!isMobile) {
       updateEdgeScrollPosition(clientX, clientY);
     }
-  }, [isMobile, updateEdgeScrollPosition, mapData?.boundingBox]);
+  }, [isMobile, updateEdgeScrollPosition, mapData?.boundingBox, userLocation]);
 
   // Handle drag end
   const handleDragEnd = useCallback(async (clientX: number, clientY: number) => {
@@ -266,36 +295,29 @@ export default function MapDetailPage() {
 
     // Calculate the actual drop position (accounting for offset)
     // This ensures the pin tip (not the cursor/finger) determines the location
-    const offsetY = isMobile ? MOBILE_DRAG_OFFSET_Y : DESKTOP_DRAG_OFFSET_Y;
-    const dropY = clientY - offsetY;
+    const offsetY = getDragOffsetY(isMobile);
 
     // Get the map instance
-    const map = mapHandleRef.current?.getMap();
+    const map = getMapFromHandle(mapHandleRef.current);
     if (!map) {
       console.error('Map instance not available');
-      setDragState({
-        isDragging: false,
-        color: null,
-        position: { x: 0, y: 0 },
-        dropInsideMap: true,
-      });
+      setDragState(createIdleDragState());
       return;
     }
 
-    const [mx, my] = mapClientToContainerPoint(map, clientX, dropY);
-    const lngLat = map.unproject([mx, my]);
+    const userLocationTarget = userLocation ? lngLatToClientPoint(map, userLocation) : null;
+    const dropResult = resolveDragObjectEnd({
+      pointerClient: { x: clientX, y: clientY },
+      offsetY,
+      magnetTarget: userLocationTarget,
+      magnetSession: dragState.physics.magnetSession,
+      isDropInsideMapAtTip: (tipClient) => isTipInsideBoundingBox(map, tipClient, mapData?.boundingBox),
+    });
+    const lngLat = clientPointToLngLat(map, dropResult.finalTip);
 
-    if (
-      mapData?.boundingBox &&
-      !isLngLatInBoundingBox(lngLat.lat, lngLat.lng, mapData.boundingBox)
-    ) {
+    if (!dropResult.dropInsideMap) {
       setPinDropError('Pins can only be placed inside the map area.');
-      setDragState({
-        isDragging: false,
-        color: null,
-        position: { x: 0, y: 0 },
-        dropInsideMap: true,
-      });
+      setDragState(createIdleDragState());
       return;
     }
 
@@ -316,23 +338,13 @@ export default function MapDetailPage() {
     }
 
     // Reset drag state
-    setDragState({
-      isDragging: false,
-      color: null,
-      position: { x: 0, y: 0 },
-      dropInsideMap: true,
-    });
-  }, [dragState.isDragging, dragState.color, mapId, firebaseUser?.uid, isMobile, stopScroll, isReadOnly, mapData?.boundingBox]);
+    setDragState(createIdleDragState());
+  }, [dragState.isDragging, dragState.color, dragState.physics.magnetSession, mapId, firebaseUser?.uid, isMobile, stopScroll, isReadOnly, mapData?.boundingBox, userLocation]);
 
   // Handle drag cancel (e.g., escape key, drag out of bounds)
   const handleDragCancel = useCallback(() => {
     stopScroll();
-    setDragState({
-      isDragging: false,
-      color: null,
-      position: { x: 0, y: 0 },
-      dropInsideMap: true,
-    });
+    setDragState(createIdleDragState());
   }, [stopScroll]);
 
   useEffect(() => {
@@ -502,6 +514,18 @@ export default function MapDetailPage() {
                 onMapReady={handleMapReady}
               >
                 <MapRangeFrame boundingBox={mapData.boundingBox} />
+                {userLocation && (
+                  <Marker
+                    longitude={userLocation.lng}
+                    latitude={userLocation.lat}
+                    anchor="center"
+                  >
+                    <div className="relative">
+                      <div className="absolute -inset-4 rounded-full bg-sky-500/25" />
+                      <div className="relative h-4 w-4 rounded-full border-2 border-white bg-sky-500 shadow-md" />
+                    </div>
+                  </Marker>
+                )}
                 {pins.map((pin) => (
                   <Marker
                     key={pin.id}
@@ -583,8 +607,9 @@ export default function MapDetailPage() {
                 isDragging={dragState.isDragging}
                 position={dragState.position}
                 color={dragState.color}
-                offsetY={isMobile ? MOBILE_DRAG_OFFSET_Y : DESKTOP_DRAG_OFFSET_Y}
-                placementHint={dragState.dropInsideMap ? 'inside' : 'outside'}
+                offsetY={getDragOffsetY(isMobile)}
+                placementHint={dragState.physics.dropInsideMap ? 'inside' : 'outside'}
+                magnetHint={dragState.physics.magnetHint}
               />
             )}
 

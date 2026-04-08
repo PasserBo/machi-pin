@@ -2,6 +2,7 @@ import { useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
+import { Marker } from 'react-map-gl/maplibre';
 import { createMap } from '../../repositories/mapRepository';
 import { useAuth } from '@/features/authorization/presentation/components/AuthContext';
 import MapNameModal from '../components/MapNameModal';
@@ -9,6 +10,7 @@ import type { MapCanvasHandle, MapStyleKey } from '../components/MapCanvas';
 import { MAP_STYLES } from '../components/MapCanvas';
 import { mapClientToContainerPoint } from '../../mapCoordinates';
 import { useLockDocumentScroll, useMapResizeOnVisualViewport } from '../../useMapPageViewport';
+import { useRealtimeUserLocation } from '../../useRealtimeUserLocation';
 
 // Viewfinder element ID for getting bounding rect
 const VIEWFINDER_ID = 'map-viewfinder-frame';
@@ -52,6 +54,7 @@ export default function NewMapPage() {
   }, []);
 
   const getMap = useCallback(() => mapHandleRef.current?.getMap(), []);
+  const { location: userLocation } = useRealtimeUserLocation();
 
   useLockDocumentScroll();
   useMapResizeOnVisualViewport(getMap);
@@ -192,7 +195,20 @@ export default function NewMapPage() {
           <MapCanvas 
             mapStyle={selectedStyle} 
             onMapReady={handleMapReady}
-          />
+          >
+            {userLocation && (
+              <Marker
+                longitude={userLocation.lng}
+                latitude={userLocation.lat}
+                anchor="center"
+              >
+                <div className="relative">
+                  <div className="absolute -inset-4 rounded-full bg-sky-500/25" />
+                  <div className="relative h-4 w-4 rounded-full border-2 border-white bg-sky-500 shadow-md" />
+                </div>
+              </Marker>
+            )}
+          </MapCanvas>
         </div>
 
         {/* Layer 2: Viewfinder Overlay (middle, z-10) */}

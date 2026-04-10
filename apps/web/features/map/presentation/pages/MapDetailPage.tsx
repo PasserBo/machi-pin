@@ -259,11 +259,14 @@ export default function MapDetailPage() {
       }
 
       const userLocationTarget = userLocation ? lngLatToClientPoint(map, userLocation) : null;
+      const snapTargets = userLocationTarget
+        ? [{ id: 'user-location', pointPx: userLocationTarget, priority: 100 }]
+        : [];
       const move = resolveDragObjectMove({
         pointerClient: { x: clientX, y: clientY },
         offsetY,
-        magnetTarget: userLocationTarget,
-        magnetSession: prev.physics.magnetSession,
+        snapTargets,
+        snappingState: prev.physics.snappingState,
         isDropInsideMapAtTip: (tipClient) => isTipInsideBoundingBox(map, tipClient, mapData?.boundingBox),
       });
 
@@ -272,7 +275,7 @@ export default function MapDetailPage() {
         position: move.overlayPosition,
         physics: {
           dropInsideMap: move.dropInsideMap,
-          magnetSession: move.magnetSession,
+          snappingState: move.snappingState,
           magnetHint: move.magnetHint,
         },
       };
@@ -306,11 +309,14 @@ export default function MapDetailPage() {
     }
 
     const userLocationTarget = userLocation ? lngLatToClientPoint(map, userLocation) : null;
+    const snapTargets = userLocationTarget
+      ? [{ id: 'user-location', pointPx: userLocationTarget, priority: 100 }]
+      : [];
     const dropResult = resolveDragObjectEnd({
       pointerClient: { x: clientX, y: clientY },
       offsetY,
-      magnetTarget: userLocationTarget,
-      magnetSession: dragState.physics.magnetSession,
+      snapTargets,
+      snappingState: dragState.physics.snappingState,
       isDropInsideMapAtTip: (tipClient) => isTipInsideBoundingBox(map, tipClient, mapData?.boundingBox),
     });
     const lngLat = clientPointToLngLat(map, dropResult.finalTip);
@@ -339,7 +345,7 @@ export default function MapDetailPage() {
 
     // Reset drag state
     setDragState(createIdleDragState());
-  }, [dragState.isDragging, dragState.color, dragState.physics.magnetSession, mapId, firebaseUser?.uid, isMobile, stopScroll, isReadOnly, mapData?.boundingBox, userLocation]);
+  }, [dragState.isDragging, dragState.color, dragState.physics.snappingState, mapId, firebaseUser?.uid, isMobile, stopScroll, isReadOnly, mapData?.boundingBox, userLocation]);
 
   // Handle drag cancel (e.g., escape key, drag out of bounds)
   const handleDragCancel = useCallback(() => {

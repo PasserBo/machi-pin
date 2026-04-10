@@ -1,11 +1,12 @@
 import {
-  BALANCED_OBJECT_MAGNET_CONFIG,
-  INITIAL_OBJECT_MAGNET_SESSION,
-  resolveObjectMagnet,
-  type ObjectMagnetConfig,
-  type ObjectMagnetSession,
-  type ScreenPoint,
-} from './objectMagnet';
+  createSnappingActionState,
+  DEFAULT_SNAPPING_THRESHOLD_CONFIG,
+  moveSnappingAction,
+  type PointPx,
+  type SnapTarget,
+  type SnappingActionState,
+  type SnappingThresholdConfig,
+} from './snappingActionWrapper';
 
 export const MOBILE_DRAG_OFFSET_Y = 60;
 export const DESKTOP_DRAG_OFFSET_Y = 24;
@@ -14,31 +15,33 @@ export type MagnetHint = 'none' | 'attached';
 
 export interface DragPhysicsState {
   dropInsideMap: boolean;
-  magnetSession: ObjectMagnetSession;
+  snappingState: SnappingActionState | null;
   magnetHint: MagnetHint;
 }
 
 export interface ResolveDragObjectMoveInput {
-  pointerClient: ScreenPoint;
+  pointerClient: PointPx;
   offsetY: number;
-  magnetTarget: ScreenPoint | null;
-  magnetSession: ObjectMagnetSession;
-  isDropInsideMapAtTip: (tipClient: ScreenPoint) => boolean;
-  magnetConfig?: ObjectMagnetConfig;
+  snapTargets: SnapTarget[];
+  snappingState: SnappingActionState | null;
+  isDropInsideMapAtTip: (tipClient: PointPx) => boolean;
+  thresholdConfig?: SnappingThresholdConfig;
+  nowMs?: number;
 }
 
 export interface ResolveDragObjectMoveResult extends DragPhysicsState {
-  overlayPosition: ScreenPoint;
-  adjustedTip: ScreenPoint;
+  overlayPosition: PointPx;
+  adjustedTip: PointPx;
 }
 
 export interface ResolveDragObjectEndInput {
-  pointerClient: ScreenPoint;
+  pointerClient: PointPx;
   offsetY: number;
-  magnetTarget: ScreenPoint | null;
-  magnetSession: ObjectMagnetSession;
-  isDropInsideMapAtTip: (tipClient: ScreenPoint) => boolean;
-  magnetConfig?: ObjectMagnetConfig;
+  snapTargets: SnapTarget[];
+  snappingState: SnappingActionState | null;
+  isDropInsideMapAtTip: (tipClient: PointPx) => boolean;
+  thresholdConfig?: SnappingThresholdConfig;
+  nowMs?: number;
 }
 
 export interface ResolveDragObjectEndResult extends DragPhysicsState {
@@ -47,14 +50,14 @@ export interface ResolveDragObjectEndResult extends DragPhysicsState {
 
 export const INITIAL_DRAG_PHYSICS_STATE: DragPhysicsState = {
   dropInsideMap: true,
-  magnetSession: INITIAL_OBJECT_MAGNET_SESSION,
+  snappingState: null,
   magnetHint: 'none',
 };
 
 export function createInitialDragPhysicsState(): DragPhysicsState {
   return {
     dropInsideMap: true,
-    magnetSession: { ...INITIAL_OBJECT_MAGNET_SESSION },
+    snappingState: null,
     magnetHint: 'none',
   };
 }
@@ -66,19 +69,22 @@ export function getDragOffsetY(isMobile: boolean): number {
 export function resolveDragObjectMove(
   input: ResolveDragObjectMoveInput,
 ): ResolveDragObjectMoveResult {
-  const magnetConfig = input.magnetConfig ?? BALANCED_OBJECT_MAGNET_CONFIG;
-  const rawTip = {
+  const nowMs = input.nowMs ?? Date.now();
+  const pointerTip = {
     x: input.pointerClient.x,
     y: input.pointerClient.y - input.offsetY,
   };
-  const magnet = resolveObjectMagnet({
-    pointer: rawTip,
-    target: input.magnetTarget,
-    session: input.magnetSession,
-    config: magnetConfig,
+  const nextState =
+    input.snappingState ?? createSnappingActionState(pointerTip, pointerTip, nowMs);
+  const snap = moveSnappingAction({
+    state: nextState,
+    pointerPx: pointerTip,
+    nowMs,
+    targets: input.snapTargets,
+    config: input.thresholdConfig ?? DEFAULT_SNAPPING_THRESHOLD_CONFIG,
   });
 
-  const adjustedTip = magnet.adjustedPointer;
+  const adjustedTip = snap.objectPx;
   const overlayPosition = {
     x: adjustedTip.x,
     y: adjustedTip.y + input.offsetY,
@@ -88,31 +94,34 @@ export function resolveDragObjectMove(
     overlayPosition,
     adjustedTip,
     dropInsideMap: input.isDropInsideMapAtTip(adjustedTip),
-    magnetSession: magnet.session,
-    magnetHint: magnet.isAttached ? 'attached' : 'none',
+    snappingState: snap.state,
+    magnetHint: snap.isSnapped ? 'attached' : 'none',
   };
 }
 
 export function resolveDragObjectEnd(
   input: ResolveDragObjectEndInput,
 ): ResolveDragObjectEndResult {
-  const magnetConfig = input.magnetConfig ?? BALANCED_OBJECT_MAGNET_CONFIG;
-  const rawTip = {
+  const nowMs = input.nowMs ?? Date.now();
+  const pointerTip = {
     x: input.pointerClient.x,
     y: input.pointerClient.y - input.offsetY,
   };
-  const magnet = resolveObjectMagnet({
-    pointer: rawTip,
-    target: input.magnetTarget,
-    session: input.magnetSession,
-    config: magnetConfig,
+  const nextState =
+    input.snappingState ?? createSnappingActionState(pointerTip, pointerTip, nowMs);
+  const snap = moveSnappingAction({
+    state: nextState,
+    pointerPx: pointerTip,
+    nowMs,
+    targets: input.snapTargets,
+    config: input.thresholdConfig ?? DEFAULT_SNAPPING_THRESHOLD_CONFIG,
   });
-  const finalTip = magnet.isAttached ? magnet.adjustedPointer : rawTip;
+  const finalTip = snap.objectPx;
 
   return {
     finalTip,
     dropInsideMap: input.isDropInsideMapAtTip(finalTip),
-    magnetSession: magnet.session,
-    magnetHint: magnet.isAttached ? 'attached' : 'none',
+    snappingState: snap.state,
+    magnetHint: snap.isSnapped ? 'attached' : 'none',
   };
 }

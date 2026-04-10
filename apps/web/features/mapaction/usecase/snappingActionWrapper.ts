@@ -96,9 +96,10 @@ export function moveSnappingAction(input: MoveSnappingActionInput): MoveSnapping
   const config = normalizeConfig(input.config);
   const velocity = nextVelocity(input.state.velocity, input.pointerPx, input.nowMs);
   const speed = velocity.speedPxPerMs;
+  const freeObjectPx = subtract(input.pointerPx, input.state.grabOffsetPx);
 
-  // Nearest target is selected by priority first, then by distance.
-  const nearest = findNearestTarget(input.pointerPx, input.targets);
+  // Use dragged object position (not raw pointer) for proximity checks.
+  const nearest = findNearestTarget(freeObjectPx, input.targets);
 
   if (input.state.phase === 'snapped') {
     // While snapped, object stays locked to target's current screen point.
@@ -107,24 +108,19 @@ export function moveSnappingAction(input: MoveSnappingActionInput): MoveSnapping
     const detachDistance = distance(input.pointerPx, objectPx);
 
     if (detachDistance >= config.rOutPx) {
-      /**
-       * Smooth Detach:
-       * Re-anchor grab offset at detach moment so object position does not jump.
-       * After this reset, free-drag formula (object = pointer - offset) yields
-       * exactly the same objectPx for the first detached frame.
-       */
-      const newGrabOffsetPx = subtract(input.pointerPx, objectPx);
+      // For pin-size draggables, detach should return immediately to pointer position.
+      const objectAtPointer = input.pointerPx;
       const detachedState: SnappingActionState = {
         phase: 'free',
-        objectPx,
-        grabOffsetPx: newGrabOffsetPx,
+        objectPx: objectAtPointer,
+        grabOffsetPx: { x: 0, y: 0 },
         velocity,
         candidate: null,
         snappedTargetId: null,
       };
       return {
         state: detachedState,
-        objectPx,
+        objectPx: objectAtPointer,
         phase: detachedState.phase,
         isSnapped: false,
         activeTargetId: null,
@@ -149,7 +145,7 @@ export function moveSnappingAction(input: MoveSnappingActionInput): MoveSnapping
 
   // Velocity bypass: fast movements should never feel "sticky".
   if (speed > config.vBypassMaxPxPerMs) {
-    const objectPx = subtract(input.pointerPx, input.state.grabOffsetPx);
+    const objectPx = freeObjectPx;
     const nextState: SnappingActionState = {
       ...input.state,
       phase: 'free',
@@ -170,7 +166,7 @@ export function moveSnappingAction(input: MoveSnappingActionInput): MoveSnapping
 
   // Only low-speed movement inside Rin can enter/maintain dwell candidate.
   if (!nearest || nearest.distancePx > config.rInPx || speed > config.vDwellMaxPxPerMs) {
-    const objectPx = subtract(input.pointerPx, input.state.grabOffsetPx);
+    const objectPx = freeObjectPx;
     const nextState: SnappingActionState = {
       ...input.state,
       phase: 'free',
@@ -217,7 +213,7 @@ export function moveSnappingAction(input: MoveSnappingActionInput): MoveSnapping
   const candidateState: SnappingActionState = {
     ...input.state,
     phase: 'candidate',
-    objectPx: subtract(input.pointerPx, input.state.grabOffsetPx),
+    objectPx: freeObjectPx,
     velocity,
     candidate: { targetId: nearest.target.id, sinceMs },
     snappedTargetId: null,

@@ -45,7 +45,7 @@ export interface ResolveDragObjectEndInput {
 }
 
 export interface ResolveDragObjectEndResult extends DragPhysicsState {
-  finalTip: ScreenPoint;
+  finalTip: PointPx;
 }
 
 export const INITIAL_DRAG_PHYSICS_STATE: DragPhysicsState = {
